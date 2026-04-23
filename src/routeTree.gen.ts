@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as CarreirasRouteImport } from './routes/carreiras'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CarreirasNovaRouteImport } from './routes/carreiras.nova'
+import { Route as CarreiraCareerIdRouteImport } from './routes/carreira.$careerId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as CarreiraCareerIdIndexRouteImport } from './routes/carreira.$careerId.index'
 
 const CarreirasRoute = CarreirasRouteImport.update({
   id: '/carreiras',
@@ -29,43 +31,77 @@ const CarreirasNovaRoute = CarreirasNovaRouteImport.update({
   path: '/nova',
   getParentRoute: () => CarreirasRoute,
 } as any)
+const CarreiraCareerIdRoute = CarreiraCareerIdRouteImport.update({
+  id: '/carreira/$careerId',
+  path: '/carreira/$careerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CarreiraCareerIdIndexRoute = CarreiraCareerIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CarreiraCareerIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/carreiras': typeof CarreirasRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/carreiras': typeof CarreirasRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/carreiras': typeof CarreirasRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
+  fullPaths:
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreira/$careerId'
+    | '/carreiras/nova'
+    | '/carreira/$careerId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
-  id: '__root__' | '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
+  to:
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreiras/nova'
+    | '/carreira/$careerId'
+  id:
+    | '__root__'
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreira/$careerId'
+    | '/carreiras/nova'
+    | '/carreira/$careerId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CarreirasRoute: typeof CarreirasRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  CarreiraCareerIdRoute: typeof CarreiraCareerIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -91,12 +127,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarreirasNovaRouteImport
       parentRoute: typeof CarreirasRoute
     }
+    '/carreira/$careerId': {
+      id: '/carreira/$careerId'
+      path: '/carreira/$careerId'
+      fullPath: '/carreira/$careerId'
+      preLoaderRoute: typeof CarreiraCareerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/callback': {
       id: '/auth/callback'
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/carreira/$careerId/': {
+      id: '/carreira/$careerId/'
+      path: '/'
+      fullPath: '/carreira/$careerId/'
+      preLoaderRoute: typeof CarreiraCareerIdIndexRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
     }
   }
 }
@@ -113,11 +163,32 @@ const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
   CarreirasRouteChildren,
 )
 
+interface CarreiraCareerIdRouteChildren {
+  CarreiraCareerIdIndexRoute: typeof CarreiraCareerIdIndexRoute
+}
+
+const CarreiraCareerIdRouteChildren: CarreiraCareerIdRouteChildren = {
+  CarreiraCareerIdIndexRoute: CarreiraCareerIdIndexRoute,
+}
+
+const CarreiraCareerIdRouteWithChildren =
+  CarreiraCareerIdRoute._addFileChildren(CarreiraCareerIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CarreirasRoute: CarreirasRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  CarreiraCareerIdRoute: CarreiraCareerIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
