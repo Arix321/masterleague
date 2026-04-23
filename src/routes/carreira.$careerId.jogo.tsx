@@ -82,10 +82,7 @@ function JogoPage() {
       return;
     }
     setBusy(true);
-    const result = gf > ga ? "V" : gf < ga ? "E" === "V" ? "E" : "D" : "E"; // simplifica
-    const realResult = gf > ga ? "V" : gf < ga ? "D" : "E";
-    void result;
-
+    const realResult: "V" | "E" | "D" = gf > ga ? "V" : gf < ga ? "D" : "E";
     const pointsDelta = realResult === "V" ? 3 : realResult === "E" ? 1 : 0;
 
     // Inserir partida
