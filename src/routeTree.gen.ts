@@ -9,38 +9,171 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CarreirasRouteImport } from './routes/carreiras'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CarreirasNovaRouteImport } from './routes/carreiras.nova'
+import { Route as CarreiraCareerIdRouteImport } from './routes/carreira.$careerId'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as CarreiraCareerIdIndexRouteImport } from './routes/carreira.$careerId.index'
+import { Route as CarreiraCareerIdTabelaRouteImport } from './routes/carreira.$careerId.tabela'
+import { Route as CarreiraCareerIdNoticiasRouteImport } from './routes/carreira.$careerId.noticias'
+import { Route as CarreiraCareerIdMercadoRouteImport } from './routes/carreira.$careerId.mercado'
+import { Route as CarreiraCareerIdJogoRouteImport } from './routes/carreira.$careerId.jogo'
+import { Route as CarreiraCareerIdElencoRouteImport } from './routes/carreira.$careerId.elenco'
 
+const CarreirasRoute = CarreirasRouteImport.update({
+  id: '/carreiras',
+  path: '/carreiras',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarreirasNovaRoute = CarreirasNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => CarreirasRoute,
+} as any)
+const CarreiraCareerIdRoute = CarreiraCareerIdRouteImport.update({
+  id: '/carreira/$careerId',
+  path: '/carreira/$careerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CarreiraCareerIdIndexRoute = CarreiraCareerIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdTabelaRoute = CarreiraCareerIdTabelaRouteImport.update({
+  id: '/tabela',
+  path: '/tabela',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdNoticiasRoute =
+  CarreiraCareerIdNoticiasRouteImport.update({
+    id: '/noticias',
+    path: '/noticias',
+    getParentRoute: () => CarreiraCareerIdRoute,
+  } as any)
+const CarreiraCareerIdMercadoRoute = CarreiraCareerIdMercadoRouteImport.update({
+  id: '/mercado',
+  path: '/mercado',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdJogoRoute = CarreiraCareerIdJogoRouteImport.update({
+  id: '/jogo',
+  path: '/jogo',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdElencoRoute = CarreiraCareerIdElencoRouteImport.update({
+  id: '/elenco',
+  path: '/elenco',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
+  '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
+  '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
+  '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
+  '/carreira/$careerId/tabela': typeof CarreiraCareerIdTabelaRoute
+  '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
+  '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
+  '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
+  '/carreira/$careerId/tabela': typeof CarreiraCareerIdTabelaRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
+  '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
+  '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
+  '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
+  '/carreira/$careerId/tabela': typeof CarreiraCareerIdTabelaRoute
+  '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreira/$careerId'
+    | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
+    | '/carreira/$careerId/mercado'
+    | '/carreira/$careerId/noticias'
+    | '/carreira/$careerId/tabela'
+    | '/carreira/$careerId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
+    | '/carreira/$careerId/mercado'
+    | '/carreira/$careerId/noticias'
+    | '/carreira/$careerId/tabela'
+    | '/carreira/$careerId'
+  id:
+    | '__root__'
+    | '/'
+    | '/carreiras'
+    | '/auth/callback'
+    | '/carreira/$careerId'
+    | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
+    | '/carreira/$careerId/mercado'
+    | '/carreira/$careerId/noticias'
+    | '/carreira/$careerId/tabela'
+    | '/carreira/$careerId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CarreirasRoute: typeof CarreirasRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
+  CarreiraCareerIdRoute: typeof CarreiraCareerIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/carreiras': {
+      id: '/carreiras'
+      path: '/carreiras'
+      fullPath: '/carreiras'
+      preLoaderRoute: typeof CarreirasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,21 +181,111 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/carreiras/nova': {
+      id: '/carreiras/nova'
+      path: '/nova'
+      fullPath: '/carreiras/nova'
+      preLoaderRoute: typeof CarreirasNovaRouteImport
+      parentRoute: typeof CarreirasRoute
+    }
+    '/carreira/$careerId': {
+      id: '/carreira/$careerId'
+      path: '/carreira/$careerId'
+      fullPath: '/carreira/$careerId'
+      preLoaderRoute: typeof CarreiraCareerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/carreira/$careerId/': {
+      id: '/carreira/$careerId/'
+      path: '/'
+      fullPath: '/carreira/$careerId/'
+      preLoaderRoute: typeof CarreiraCareerIdIndexRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/tabela': {
+      id: '/carreira/$careerId/tabela'
+      path: '/tabela'
+      fullPath: '/carreira/$careerId/tabela'
+      preLoaderRoute: typeof CarreiraCareerIdTabelaRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/noticias': {
+      id: '/carreira/$careerId/noticias'
+      path: '/noticias'
+      fullPath: '/carreira/$careerId/noticias'
+      preLoaderRoute: typeof CarreiraCareerIdNoticiasRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/mercado': {
+      id: '/carreira/$careerId/mercado'
+      path: '/mercado'
+      fullPath: '/carreira/$careerId/mercado'
+      preLoaderRoute: typeof CarreiraCareerIdMercadoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/jogo': {
+      id: '/carreira/$careerId/jogo'
+      path: '/jogo'
+      fullPath: '/carreira/$careerId/jogo'
+      preLoaderRoute: typeof CarreiraCareerIdJogoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/elenco': {
+      id: '/carreira/$careerId/elenco'
+      path: '/elenco'
+      fullPath: '/carreira/$careerId/elenco'
+      preLoaderRoute: typeof CarreiraCareerIdElencoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
   }
 }
 
+interface CarreirasRouteChildren {
+  CarreirasNovaRoute: typeof CarreirasNovaRoute
+}
+
+const CarreirasRouteChildren: CarreirasRouteChildren = {
+  CarreirasNovaRoute: CarreirasNovaRoute,
+}
+
+const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
+  CarreirasRouteChildren,
+)
+
+interface CarreiraCareerIdRouteChildren {
+  CarreiraCareerIdElencoRoute: typeof CarreiraCareerIdElencoRoute
+  CarreiraCareerIdJogoRoute: typeof CarreiraCareerIdJogoRoute
+  CarreiraCareerIdMercadoRoute: typeof CarreiraCareerIdMercadoRoute
+  CarreiraCareerIdNoticiasRoute: typeof CarreiraCareerIdNoticiasRoute
+  CarreiraCareerIdTabelaRoute: typeof CarreiraCareerIdTabelaRoute
+  CarreiraCareerIdIndexRoute: typeof CarreiraCareerIdIndexRoute
+}
+
+const CarreiraCareerIdRouteChildren: CarreiraCareerIdRouteChildren = {
+  CarreiraCareerIdElencoRoute: CarreiraCareerIdElencoRoute,
+  CarreiraCareerIdJogoRoute: CarreiraCareerIdJogoRoute,
+  CarreiraCareerIdMercadoRoute: CarreiraCareerIdMercadoRoute,
+  CarreiraCareerIdNoticiasRoute: CarreiraCareerIdNoticiasRoute,
+  CarreiraCareerIdTabelaRoute: CarreiraCareerIdTabelaRoute,
+  CarreiraCareerIdIndexRoute: CarreiraCareerIdIndexRoute,
+}
+
+const CarreiraCareerIdRouteWithChildren =
+  CarreiraCareerIdRoute._addFileChildren(CarreiraCareerIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CarreirasRoute: CarreirasRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
+  CarreiraCareerIdRoute: CarreiraCareerIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
