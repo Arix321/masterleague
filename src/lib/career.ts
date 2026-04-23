@@ -31,7 +31,16 @@ export async function createCareer(input: NewCareerInput) {
   if (careerErr || !career) throw careerErr ?? new Error("Falha ao criar carreira");
 
   // Inserir todos os elencos dos 6 clubes
-  const allSquadRows: Array<Record<string, unknown>> = [];
+  const allSquadRows: Array<{
+    career_id: string;
+    user_id: string;
+    club_slug: string;
+    name: string;
+    position: string;
+    overall: number;
+    weekly_wage_eur: number;
+    market_value_eur: number;
+  }> = [];
   (Object.keys(SQUADS) as ClubSlug[]).forEach((slug) => {
     SQUADS[slug].forEach((p) => {
       allSquadRows.push({

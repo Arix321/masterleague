@@ -9,38 +9,74 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CarreirasRouteImport } from './routes/carreiras'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CarreirasNovaRouteImport } from './routes/carreiras.nova'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 
+const CarreirasRoute = CarreirasRouteImport.update({
+  id: '/carreiras',
+  path: '/carreiras',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CarreirasNovaRoute = CarreirasNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
+  getParentRoute: () => CarreirasRoute,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreiras/nova': typeof CarreirasNovaRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreiras/nova': typeof CarreirasNovaRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/carreiras': typeof CarreirasRouteWithChildren
+  '/auth/callback': typeof AuthCallbackRoute
+  '/carreiras/nova': typeof CarreirasNovaRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
+  id: '__root__' | '/' | '/carreiras' | '/auth/callback' | '/carreiras/nova'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CarreirasRoute: typeof CarreirasRouteWithChildren
+  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/carreiras': {
+      id: '/carreiras'
+      path: '/carreiras'
+      fullPath: '/carreiras'
+      preLoaderRoute: typeof CarreirasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +84,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/carreiras/nova': {
+      id: '/carreiras/nova'
+      path: '/nova'
+      fullPath: '/carreiras/nova'
+      preLoaderRoute: typeof CarreirasNovaRouteImport
+      parentRoute: typeof CarreirasRoute
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface CarreirasRouteChildren {
+  CarreirasNovaRoute: typeof CarreirasNovaRoute
+}
+
+const CarreirasRouteChildren: CarreirasRouteChildren = {
+  CarreirasNovaRoute: CarreirasNovaRoute,
+}
+
+const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
+  CarreirasRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CarreirasRoute: CarreirasRouteWithChildren,
+  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
