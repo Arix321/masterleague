@@ -15,6 +15,8 @@ import { Route as CarreirasNovaRouteImport } from './routes/carreiras.nova'
 import { Route as CarreiraCareerIdRouteImport } from './routes/carreira.$careerId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as CarreiraCareerIdIndexRouteImport } from './routes/carreira.$careerId.index'
+import { Route as CarreiraCareerIdJogoRouteImport } from './routes/carreira.$careerId.jogo'
+import { Route as CarreiraCareerIdElencoRouteImport } from './routes/carreira.$careerId.elenco'
 
 const CarreirasRoute = CarreirasRouteImport.update({
   id: '/carreiras',
@@ -46,6 +48,16 @@ const CarreiraCareerIdIndexRoute = CarreiraCareerIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CarreiraCareerIdRoute,
 } as any)
+const CarreiraCareerIdJogoRoute = CarreiraCareerIdJogoRouteImport.update({
+  id: '/jogo',
+  path: '/jogo',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdElencoRoute = CarreiraCareerIdElencoRouteImport.update({
+  id: '/elenco',
+  path: '/elenco',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +65,8 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -60,6 +74,8 @@ export interface FileRoutesByTo {
   '/carreiras': typeof CarreirasRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRoutesById {
@@ -69,6 +85,8 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/': typeof CarreiraCareerIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -79,6 +97,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/carreira/$careerId'
     | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -86,6 +106,8 @@ export interface FileRouteTypes {
     | '/carreiras'
     | '/auth/callback'
     | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
     | '/carreira/$careerId'
   id:
     | '__root__'
@@ -94,6 +116,8 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/carreira/$careerId'
     | '/carreiras/nova'
+    | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/'
   fileRoutesById: FileRoutesById
 }
@@ -148,6 +172,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarreiraCareerIdIndexRouteImport
       parentRoute: typeof CarreiraCareerIdRoute
     }
+    '/carreira/$careerId/jogo': {
+      id: '/carreira/$careerId/jogo'
+      path: '/jogo'
+      fullPath: '/carreira/$careerId/jogo'
+      preLoaderRoute: typeof CarreiraCareerIdJogoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/elenco': {
+      id: '/carreira/$careerId/elenco'
+      path: '/elenco'
+      fullPath: '/carreira/$careerId/elenco'
+      preLoaderRoute: typeof CarreiraCareerIdElencoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
   }
 }
 
@@ -164,10 +202,14 @@ const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
 )
 
 interface CarreiraCareerIdRouteChildren {
+  CarreiraCareerIdElencoRoute: typeof CarreiraCareerIdElencoRoute
+  CarreiraCareerIdJogoRoute: typeof CarreiraCareerIdJogoRoute
   CarreiraCareerIdIndexRoute: typeof CarreiraCareerIdIndexRoute
 }
 
 const CarreiraCareerIdRouteChildren: CarreiraCareerIdRouteChildren = {
+  CarreiraCareerIdElencoRoute: CarreiraCareerIdElencoRoute,
+  CarreiraCareerIdJogoRoute: CarreiraCareerIdJogoRoute,
   CarreiraCareerIdIndexRoute: CarreiraCareerIdIndexRoute,
 }
 
