@@ -67,10 +67,46 @@ function ElencoPage() {
 
   const totalWage = players.reduce((acc, p) => acc + p.weekly_wage_eur, 0);
 
-  const handleEdit = async (id: string, name: string, age: number, position: Position) => {
-    const { error } = await supabase.from("squad_players").update({ name, age, position }).eq("id", id);
+  const handleEdit = async (
+    id: string,
+    patch: {
+      name: string;
+      age: number;
+      position: Position;
+      overall: number;
+      potential: number;
+      attack: number;
+      defense: number;
+      physical: number;
+      technique: number;
+      weekly_wage_eur: number;
+    },
+  ) => {
+    const before = players.find((p) => p.id === id);
+    const { error } = await supabase.from("squad_players").update(patch).eq("id", id);
     if (error) { toast.error(error.message); return; }
+    if (before && before.weekly_wage_eur !== patch.weekly_wage_eur) {
+      const delta = patch.weekly_wage_eur - before.weekly_wage_eur;
+      await supabase.from("careers").update({
+        weekly_wages_eur: Math.max(0, career.weekly_wages_eur + delta),
+        updated_at: new Date().toISOString(),
+      }).eq("id", career.id);
+      await refresh();
+    }
     toast.success("Jogador atualizado.");
+    await load();
+  };
+
+  const handleDelete = async (id: string, name: string, wage: number) => {
+    if (!confirm(`Liberar ${name} do elenco? Essa ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("squad_players").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    await supabase.from("careers").update({
+      weekly_wages_eur: Math.max(0, career.weekly_wages_eur - wage),
+      updated_at: new Date().toISOString(),
+    }).eq("id", career.id);
+    toast.success(`${name} removido do elenco.`);
+    await refresh();
     await load();
   };
 
@@ -140,10 +176,15 @@ function ElencoPage() {
                     <span>{formatEur(p.weekly_wage_eur)}/sem</span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1">
+                <div className="flex flex-col items-end gap-1.5">
                   <p className="text-xs uppercase text-muted-foreground">Valor</p>
                   <p className="font-bold">{formatEur(p.market_value_eur)}</p>
-                  <EditPlayerDialog player={p} onEdit={handleEdit} />
+                  <div className="flex gap-1">
+                    <EditPlayerDialog player={p} onEdit={handleEdit} />
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.id, p.name, p.weekly_wage_eur)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
