@@ -33,6 +33,8 @@ export type Database = {
           played: number
           points: number
           season: number
+          transfer_window_closes_at: number
+          transfer_window_open: boolean
           updated_at: string
           user_id: string
           weekly_wages_eur: number
@@ -56,6 +58,8 @@ export type Database = {
           played?: number
           points?: number
           season?: number
+          transfer_window_closes_at?: number
+          transfer_window_open?: boolean
           updated_at?: string
           user_id: string
           weekly_wages_eur?: number
@@ -79,6 +83,8 @@ export type Database = {
           played?: number
           points?: number
           season?: number
+          transfer_window_closes_at?: number
+          transfer_window_open?: boolean
           updated_at?: string
           user_id?: string
           weekly_wages_eur?: number
@@ -86,8 +92,60 @@ export type Database = {
         }
         Relationships: []
       }
+      incoming_offers: {
+        Row: {
+          bonus_eur: number
+          career_id: string
+          created_at: string
+          fee_eur: number
+          from_club: string
+          id: string
+          matchday: number
+          offer_type: string
+          player_id: string
+          player_interest: number
+          player_name: string
+          status: string
+          user_id: string
+          wage_offered_eur: number
+        }
+        Insert: {
+          bonus_eur?: number
+          career_id: string
+          created_at?: string
+          fee_eur?: number
+          from_club: string
+          id?: string
+          matchday?: number
+          offer_type?: string
+          player_id: string
+          player_interest?: number
+          player_name: string
+          status?: string
+          user_id: string
+          wage_offered_eur?: number
+        }
+        Update: {
+          bonus_eur?: number
+          career_id?: string
+          created_at?: string
+          fee_eur?: number
+          from_club?: string
+          id?: string
+          matchday?: number
+          offer_type?: string
+          player_id?: string
+          player_interest?: number
+          player_name?: string
+          status?: string
+          user_id?: string
+          wage_offered_eur?: number
+        }
+        Relationships: []
+      }
       market_players: {
         Row: {
+          age: number
           career_id: string
           created_at: string
           expected_wage_eur: number
@@ -96,10 +154,12 @@ export type Database = {
           name: string
           overall: number
           position: string
+          potential: number
           region: string
           user_id: string
         }
         Insert: {
+          age?: number
           career_id: string
           created_at?: string
           expected_wage_eur?: number
@@ -108,10 +168,12 @@ export type Database = {
           name: string
           overall?: number
           position?: string
+          potential?: number
           region?: string
           user_id: string
         }
         Update: {
+          age?: number
           career_id?: string
           created_at?: string
           expected_wage_eur?: number
@@ -120,6 +182,7 @@ export type Database = {
           name?: string
           overall?: number
           position?: string
+          potential?: number
           region?: string
           user_id?: string
         }
@@ -229,10 +292,13 @@ export type Database = {
       }
       squad_players: {
         Row: {
+          age: number
           assists: number
+          attack: number
           career_id: string
           club_slug: string
           created_at: string
+          defense: number
           goals: number
           id: string
           injured: boolean
@@ -240,15 +306,21 @@ export type Database = {
           morale: number
           name: string
           overall: number
+          physical: number
           position: string
+          potential: number
+          technique: number
           user_id: string
           weekly_wage_eur: number
         }
         Insert: {
+          age?: number
           assists?: number
+          attack?: number
           career_id: string
           club_slug: string
           created_at?: string
+          defense?: number
           goals?: number
           id?: string
           injured?: boolean
@@ -256,15 +328,21 @@ export type Database = {
           morale?: number
           name: string
           overall?: number
+          physical?: number
           position?: string
+          potential?: number
+          technique?: number
           user_id: string
           weekly_wage_eur?: number
         }
         Update: {
+          age?: number
           assists?: number
+          attack?: number
           career_id?: string
           club_slug?: string
           created_at?: string
+          defense?: number
           goals?: number
           id?: string
           injured?: boolean
@@ -272,7 +350,10 @@ export type Database = {
           morale?: number
           name?: string
           overall?: number
+          physical?: number
           position?: string
+          potential?: number
+          technique?: number
           user_id?: string
           weekly_wage_eur?: number
         }
