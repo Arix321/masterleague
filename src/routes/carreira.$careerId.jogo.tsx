@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { fanReaction, postMatchHeadline } from "@/lib/narrative";
 import { toast } from "sonner";
 import { Trophy, ChevronRight } from "lucide-react";
+import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
   id: string;
@@ -19,6 +20,9 @@ interface SquadRow {
   goals: number;
   assists: number;
   injured: boolean;
+  age: number;
+  market_value_eur: number;
+  weekly_wage_eur: number;
 }
 
 export const Route = createFileRoute("/carreira/$careerId/jogo")({
@@ -46,7 +50,7 @@ function JogoPage() {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, goals, assists, injured")
+        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
@@ -84,6 +88,9 @@ function JogoPage() {
     setBusy(true);
     const realResult: "V" | "E" | "D" = gf > ga ? "V" : gf < ga ? "D" : "E";
     const pointsDelta = realResult === "V" ? 3 : realResult === "E" ? 1 : 0;
+    const bonus = realResult === "V" ? victoryBonus(gf, ga) : 0;
+    const nextMatchday = career.matchday + 1;
+    const windowStillOpen = nextMatchday <= career.transfer_window_closes_at;
 
     // Inserir partida
     const { error: matchErr } = await supabase.from("matches").insert({
@@ -124,7 +131,7 @@ function JogoPage() {
     // Atualizar carreira
     const nextOpp = club.rivals[(career.matchday) % club.rivals.length] ?? "Adversário";
     const { error: cErr } = await supabase.from("careers").update({
-      matchday: career.matchday + 1,
+      matchday: nextMatchday,
       points: career.points + pointsDelta,
       played: career.played + 1,
       wins: career.wins + (realResult === "V" ? 1 : 0),
@@ -134,21 +141,68 @@ function JogoPage() {
       goals_against: career.goals_against + ga,
       league_position: position,
       next_opponent: nextOpp,
-      cash_eur: career.cash_eur - career.weekly_wages_eur,
+      cash_eur: career.cash_eur - career.weekly_wages_eur + bonus,
+      transfer_window_open: windowStillOpen,
       updated_at: new Date().toISOString(),
     }).eq("id", career.id);
     if (cErr) { toast.error(cErr.message); setBusy(false); return; }
 
     // Notícia
+    const bonusLine = bonus > 0 ? `\n\n💰 Diretoria liberou bônus de €${bonus.toLocaleString("pt-BR")} pela vitória!` : "";
     await supabase.from("news_feed").insert({
       career_id: career.id,
       user_id: career.user_id,
       kind: "headline",
       title: postMatchHeadline(opponent.trim(), gf, ga, club.name),
-      body: `${fanReaction(gf, ga)}\n\nGols: ${scorers || "—"}\nAssistências: ${assists || "—"}\nPosição na tabela: ${position}º`,
+      body: `${fanReaction(gf, ga)}\n\nGols: ${scorers || "—"}\nAssistências: ${assists || "—"}\nPosição na tabela: ${position}º${bonusLine}`,
     });
 
+    // Notícia separada para o bônus
+    if (bonus > 0) {
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "finance",
+        title: `Diretoria libera €${bonus.toLocaleString("pt-BR")} após vitória`,
+        body: `Pelo desempenho ofensivo (${gf}x${ga}), o conselho aprovou um aporte extra para o ${club.name}.`,
+      });
+    }
+
+    // Notícia se a janela fechar agora
+    if (career.transfer_window_open && !windowStillOpen) {
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "transfer",
+        title: "Janela de transferências encerrada",
+        body: `A federação encerrou a janela. Próximas movimentações ficam para a próxima abertura.`,
+      });
+    }
+
+    // Propostas dos rivais (se janela ainda aberta)
+    if (windowStillOpen) {
+      const offers = buildIncomingOffers(
+        players.map((p) => ({
+          id: p.id, name: p.name, overall: p.overall, age: p.age,
+          market_value_eur: p.market_value_eur, weekly_wage_eur: p.weekly_wage_eur,
+          goals: p.goals, assists: p.assists,
+        })),
+        nextMatchday,
+        true,
+      );
+      if (offers.length > 0) {
+        await supabase.from("incoming_offers").insert(
+          offers.map((o) => ({
+            ...o,
+            career_id: career.id,
+            user_id: career.user_id,
+          })),
+        );
+      }
+    }
+
     toast.success("Resultado registrado!");
+    if (bonus > 0) toast.success(`💰 Bônus por vitória: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(bonus)}`);
     await refresh();
     navigate({ to: "/carreira/$careerId", params: { careerId } });
     setBusy(false);

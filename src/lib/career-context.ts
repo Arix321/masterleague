@@ -21,6 +21,8 @@ export interface CareerData {
   goals_against: number;
   intro_done: boolean;
   next_opponent: string | null;
+  transfer_window_open: boolean;
+  transfer_window_closes_at: number;
 }
 
 export interface CareerContextValue {
