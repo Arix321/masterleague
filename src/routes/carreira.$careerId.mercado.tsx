@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCareer } from "@/lib/career-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { Handshake, Store, Lock } from "lucide-react";
+import { Handshake, Store, Lock, Search, X } from "lucide-react";
 import React from "react";
 
 interface MarketRow {
@@ -31,6 +32,8 @@ function MercadoPage() {
   const { career, club, refresh } = useCareer();
   const { careerId } = useParams({ from: "/carreira/$careerId/mercado" });
   const [market, setMarket] = useState<MarketRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [posFilter, setPosFilter] = useState<string>("ALL");
 
   const load = async () => {
     const { data } = await supabase
@@ -42,6 +45,15 @@ function MercadoPage() {
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [careerId]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return market.filter((p) => {
+      if (posFilter !== "ALL" && p.position !== posFilter) return false;
+      if (q && !p.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [market, search, posFilter]);
 
   const negotiate = async (player: MarketRow, fee: number, wage: number, years: number) => {
     if (!career.transfer_window_open) {
@@ -117,10 +129,52 @@ function MercadoPage() {
               : "Janela fechada. Aguarde a próxima abertura para contratar."}
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-wrap items-end gap-3 pt-0">
+          <div className="min-w-[220px] flex-1 space-y-1.5">
+            <Label className="text-xs">Buscar jogador</Label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Digite o nome..."
+                className="pl-8 pr-8"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Limpar busca"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="w-40 space-y-1.5">
+            <Label className="text-xs">Posição</Label>
+            <Select value={posFilter} onValueChange={setPosFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todas</SelectItem>
+                <SelectItem value="GOL">GOL</SelectItem>
+                <SelectItem value="ZAG">ZAG</SelectItem>
+                <SelectItem value="LAT">LAT</SelectItem>
+                <SelectItem value="VOL">VOL</SelectItem>
+                <SelectItem value="MEI">MEI</SelectItem>
+                <SelectItem value="ATA">ATA</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {filtered.length} de {market.length}
+          </div>
+        </CardContent>
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {market.map((p) => (
+        {filtered.map((p) => (
           <Card key={p.id} className="border-border/60 bg-card/70">
             <CardContent className="space-y-3 p-4">
               <div className="flex items-center gap-3">
@@ -147,8 +201,10 @@ function MercadoPage() {
             </CardContent>
           </Card>
         ))}
-        {market.length === 0 && (
-          <p className="md:col-span-2 xl:col-span-3 text-muted-foreground">Mercado vazio.</p>
+        {filtered.length === 0 && (
+          <p className="md:col-span-2 xl:col-span-3 text-muted-foreground">
+            {market.length === 0 ? "Mercado vazio." : "Nenhum jogador encontrado com esses filtros."}
+          </p>
         )}
       </div>
     </div>
