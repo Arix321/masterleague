@@ -6,7 +6,7 @@ import { CLUBS, type ClubSlug } from "@/data/clubs";
 import { CareerContext, type CareerData } from "@/lib/career-context";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/format";
-import { ArrowLeft, Home, Users, ClipboardList, Newspaper, Store, Trophy } from "lucide-react";
+import { ArrowLeft, Home, Users, ClipboardList, Newspaper, Store, Trophy, Inbox, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/carreira/$careerId")({
@@ -49,13 +49,19 @@ function CareerLayout() {
   }
 
   const club = CLUBS[career.club_slug as ClubSlug];
-  const tabs = [
-    { to: ".", label: "Hub", icon: Home, exact: true },
-    { to: "elenco", label: "Elenco", icon: Users },
-    { to: "jogo", label: "Jogo", icon: ClipboardList },
-    { to: "mercado", label: "Mercado", icon: Store },
-    { to: "tabela", label: "Tabela", icon: Trophy },
-    { to: "noticias", label: "Notícias", icon: Newspaper },
+  const tabs: Array<{
+    to: "/carreira/$careerId" | "/carreira/$careerId/elenco" | "/carreira/$careerId/jogo" | "/carreira/$careerId/mercado" | "/carreira/$careerId/propostas" | "/carreira/$careerId/tabela" | "/carreira/$careerId/noticias";
+    label: string;
+    icon: typeof Home;
+    exact?: boolean;
+  }> = [
+    { to: "/carreira/$careerId", label: "Hub", icon: Home, exact: true },
+    { to: "/carreira/$careerId/elenco", label: "Elenco", icon: Users },
+    { to: "/carreira/$careerId/jogo", label: "Jogo", icon: ClipboardList },
+    { to: "/carreira/$careerId/mercado", label: "Mercado", icon: Store },
+    { to: "/carreira/$careerId/propostas", label: "Propostas", icon: Inbox },
+    { to: "/carreira/$careerId/tabela", label: "Tabela", icon: Trophy },
+    { to: "/carreira/$careerId/noticias", label: "Notícias", icon: Newspaper },
   ];
 
   return (
@@ -84,6 +90,11 @@ function CareerLayout() {
                 <Pill label="Salários/sem" value={formatEur(career.weekly_wages_eur)} />
                 <Pill label="Posição" value={`${career.league_position}º`} />
                 <Pill label="Pontos" value={String(career.points)} />
+                <Pill
+                  label="Janela"
+                  value={career.transfer_window_open ? `Aberta até R${career.transfer_window_closes_at}` : "Fechada"}
+                  accent={career.transfer_window_open}
+                />
               </div>
             </div>
 
@@ -91,12 +102,12 @@ function CareerLayout() {
               {tabs.map((t) => {
                 const isActive = t.exact
                   ? location.pathname === `/carreira/${careerId}` || location.pathname === `/carreira/${careerId}/`
-                  : location.pathname.includes(`/carreira/${careerId}/${t.to}`);
+                  : location.pathname.startsWith(t.to.replace("$careerId", careerId));
                 const Icon = t.icon;
                 return (
                   <Link
                     key={t.label}
-                    to={t.exact ? "/carreira/$careerId" : `/carreira/$careerId/${t.to}`}
+                    to={t.to}
                     params={{ careerId }}
                     className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                       isActive
