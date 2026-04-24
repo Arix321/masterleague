@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { Handshake, Store } from "lucide-react";
+import { Handshake, Store, Lock } from "lucide-react";
 
 interface MarketRow {
   id: string;
@@ -43,6 +43,10 @@ function MercadoPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [careerId]);
 
   const negotiate = async (player: MarketRow, fee: number, wage: number, years: number) => {
+    if (!career.transfer_window_open) {
+      toast.error("Janela de transferências fechada.");
+      return;
+    }
     if (fee > career.cash_eur) {
       toast.error("Caixa insuficiente.");
       return;
@@ -102,8 +106,15 @@ function MercadoPage() {
     <div className="space-y-6">
       <Card className="border-border/60 bg-card/70">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Store className="h-5 w-5 text-primary" /> Mercado de transferências</CardTitle>
-          <CardDescription>Apenas jogadores fora dos 6 grandes aparecem aqui. Caixa: {formatEur(career.cash_eur)}.</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <Store className="h-5 w-5 text-primary" /> Mercado de transferências
+            {!career.transfer_window_open && <Badge variant="destructive" className="gap-1"><Lock className="h-3 w-3" /> Fechada</Badge>}
+          </CardTitle>
+          <CardDescription>
+            {career.transfer_window_open
+              ? `Janela aberta até a rodada ${career.transfer_window_closes_at}. Caixa: ${formatEur(career.cash_eur)}.`
+              : "Janela fechada. Aguarde a próxima abertura para contratar."}
+          </CardDescription>
         </CardHeader>
       </Card>
 
