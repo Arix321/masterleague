@@ -39,8 +39,8 @@ function NewCareerPage() {
     setBusy(true);
     try {
       const career = await createCareer({ userId: user.id, managerName: managerName.trim(), clubSlug: selected });
-      toast.success("Carreira iniciada!");
-      navigate({ to: "/carreira/$careerId", params: { careerId: career.id } });
+      toast.success("Clube selecionado! Prepare seu elenco.");
+      navigate({ to: "/carreira/$careerId/preparacao", params: { careerId: career.id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao criar carreira");
     } finally {
