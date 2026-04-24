@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
 import { Handshake, Store, Lock } from "lucide-react";
+import React from "react";
 
 interface MarketRow {
   id: string;
@@ -142,7 +143,7 @@ function MercadoPage() {
                   <p className="font-bold">{formatEur(p.expected_wage_eur)}/sem</p>
                 </div>
               </div>
-              <NegotiateDialog player={p} onNegotiate={negotiate} />
+              <NegotiateDialog player={p} onNegotiate={negotiate} disabled={!career.transfer_window_open} />
             </CardContent>
           </Card>
         ))}
@@ -154,7 +155,7 @@ function MercadoPage() {
   );
 }
 
-function NegotiateDialog({ player, onNegotiate }: { player: MarketRow; onNegotiate: (p: MarketRow, fee: number, wage: number, years: number) => Promise<void> }) {
+function NegotiateDialog({ player, onNegotiate, disabled }: { player: MarketRow; onNegotiate: (p: MarketRow, fee: number, wage: number, years: number) => Promise<void>; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const [fee, setFee] = useState(player.market_value_eur);
   const [wage, setWage] = useState(player.expected_wage_eur);
@@ -171,7 +172,9 @@ function NegotiateDialog({ player, onNegotiate }: { player: MarketRow; onNegotia
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="w-full"><Handshake className="mr-2 h-4 w-4" /> Negociar</Button>
+        <Button className="w-full" disabled={disabled}>
+          {disabled ? <><Lock className="mr-2 h-4 w-4" /> Janela fechada</> : <><Handshake className="mr-2 h-4 w-4" /> Negociar</>}
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
