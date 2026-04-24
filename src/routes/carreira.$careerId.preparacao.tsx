@@ -1,9 +1,7 @@
-import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useCareer } from "@/lib/career-context";
 import { supabase } from "@/integrations/supabase/client";
-import { CLUBS, type ClubSlug } from "@/data/clubs";
-import type { CareerData } from "@/lib/career-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { ArrowLeft, Heart, Stethoscope, Pencil, Plus, Sparkles, Trash2, PlayCircle, ShieldAlert, Trophy } from "lucide-react";
+import { Heart, Stethoscope, Pencil, Plus, Sparkles, Trash2, PlayCircle, ShieldAlert, Trophy } from "lucide-react";
 import { generatePlayerStats, randomPlayerName, estimateValue } from "@/lib/players";
 import type { Position } from "@/data/squads";
 
@@ -45,42 +43,22 @@ export const Route = createFileRoute("/carreira/$careerId/preparacao")({
 
 function PreparacaoPage() {
   const { careerId } = useParams({ from: "/carreira/$careerId/preparacao" });
-  const { user, loading } = useAuth();
+  const { career, club, refresh } = useCareer();
   const navigate = useNavigate();
-  const [career, setCareer] = useState<CareerData | null>(null);
   const [players, setPlayers] = useState<SquadRow[]>([]);
-  const [fetching, setFetching] = useState(true);
   const [starting, setStarting] = useState(false);
 
-  const loadCareer = useCallback(async () => {
-    const { data } = await supabase.from("careers").select("*").eq("id", careerId).maybeSingle();
-    if (!data) { navigate({ to: "/carreiras" }); return; }
-    setCareer(data as CareerData);
-  }, [careerId, navigate]);
-
-  const loadPlayers = useCallback(async (clubSlug: string) => {
+  const loadPlayers = async () => {
     const { data, error } = await supabase
       .from("squad_players")
       .select("id, name, position, overall, weekly_wage_eur, market_value_eur, morale, injured, goals, assists, age, potential, attack, defense, physical, technique")
       .eq("career_id", careerId)
-      .eq("club_slug", clubSlug);
+      .eq("club_slug", career.club_slug);
     if (error) toast.error(error.message);
     else setPlayers((data ?? []) as SquadRow[]);
-  }, [careerId]);
+  };
 
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/" });
-  }, [loading, user, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
-    setFetching(true);
-    loadCareer().finally(() => setFetching(false));
-  }, [user, loadCareer]);
-
-  useEffect(() => {
-    if (career) loadPlayers(career.club_slug);
-  }, [career, loadPlayers]);
+  useEffect(() => { loadPlayers(); /* eslint-disable-next-line */ }, [careerId, career.club_slug]);
 
   const sorted = useMemo(
     () => [...players].sort((a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9) || b.overall - a.overall),
@@ -88,11 +66,6 @@ function PreparacaoPage() {
   );
 
   const totalWage = players.reduce((acc, p) => acc + p.weekly_wage_eur, 0);
-  const club = career ? CLUBS[career.club_slug as ClubSlug] : null;
-
-  if (fetching || !career || !club) {
-    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Preparando vestiário...</div>;
-  }
 
   const handleEdit = async (id: string, patch: EditPatch) => {
     const before = players.find((p) => p.id === id);
@@ -104,10 +77,10 @@ function PreparacaoPage() {
         weekly_wages_eur: Math.max(0, career.weekly_wages_eur + delta),
         updated_at: new Date().toISOString(),
       }).eq("id", career.id);
-      await loadCareer();
+      await refresh();
     }
     toast.success("Jogador atualizado.");
-    await loadPlayers(career.club_slug);
+    await loadPlayers();
   };
 
   const handleDelete = async (id: string, name: string, wage: number) => {
@@ -119,8 +92,8 @@ function PreparacaoPage() {
       updated_at: new Date().toISOString(),
     }).eq("id", career.id);
     toast.success(`${name} liberado.`);
-    await loadCareer();
-    await loadPlayers(career.club_slug);
+    await refresh();
+    await loadPlayers();
   };
 
   const handleCreate = async (name: string, age: number, position: Position) => {
@@ -146,8 +119,8 @@ function PreparacaoPage() {
       updated_at: new Date().toISOString(),
     }).eq("id", career.id);
     toast.success(`${name} adicionado — OVR ${stats.overall} / POT ${stats.potential}`);
-    await loadCareer();
-    await loadPlayers(career.club_slug);
+    await refresh();
+    await loadPlayers();
   };
 
   const startSeason = async () => {
@@ -160,46 +133,24 @@ function PreparacaoPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <header
-        className="border-b border-border/60 backdrop-blur"
-        style={{ background: `linear-gradient(135deg, ${club.primary}33, transparent)` }}
-      >
-        <div className="container mx-auto flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/carreiras"><ArrowLeft className="mr-2 h-4 w-4" /> Saves</Link>
-            </Button>
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">{club.badge}</span>
-              <div>
-                <h1 className="text-xl font-black leading-tight">Preparação — {club.name}</h1>
-                <p className="text-xs text-muted-foreground">Edite, crie e libere jogadores antes de começar a temporada.</p>
-              </div>
-            </div>
-          </div>
-          <Button size="lg" onClick={startSeason} disabled={starting} className="gap-2">
-            <PlayCircle className="h-5 w-5" /> {starting ? "Iniciando..." : "Iniciar temporada"}
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto space-y-6 px-6 py-8">
+    <div className="space-y-6">
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
             <div className="flex items-center gap-3">
               <Trophy className="h-6 w-6 text-primary" />
               <div>
-                <p className="font-bold">Vestiário aberto</p>
+                <p className="font-bold">Pré-temporada — {club.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  Personalize seu elenco antes da bola rolar. Quando estiver pronto, clique em <strong>Iniciar temporada</strong>.
+                  Edite, crie e libere jogadores como quiser. Quando o elenco estiver pronto, clique em <strong>Iniciar temporada</strong>.
                 </p>
               </div>
             </div>
-            <div className="flex gap-3 text-sm">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               <Pill label="Jogadores" value={String(players.length)} accent={players.length >= 11} />
               <Pill label="Folha/sem" value={formatEur(totalWage)} />
-              <Pill label="Caixa" value={formatEur(career.cash_eur)} accent />
+              <Button size="lg" onClick={startSeason} disabled={starting} className="gap-2">
+                <PlayCircle className="h-5 w-5" /> {starting ? "Iniciando..." : "Iniciar temporada"}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -261,7 +212,6 @@ function PreparacaoPage() {
             <PlayCircle className="h-5 w-5" /> {starting ? "Iniciando..." : "Iniciar temporada"}
           </Button>
         </div>
-      </main>
     </div>
   );
 }
