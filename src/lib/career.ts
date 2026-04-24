@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { CLUBS, type ClubSlug } from "@/data/clubs";
 import { SQUADS, MARKET_SEED } from "@/data/squads";
+import { generatePlayerStats } from "@/lib/players";
 
 export interface NewCareerInput {
   managerName: string;
@@ -40,9 +41,17 @@ export async function createCareer(input: NewCareerInput) {
     overall: number;
     weekly_wage_eur: number;
     market_value_eur: number;
+    age: number;
+    potential: number;
+    attack: number;
+    defense: number;
+    physical: number;
+    technique: number;
   }> = [];
   (Object.keys(SQUADS) as ClubSlug[]).forEach((slug) => {
     SQUADS[slug].forEach((p) => {
+      const age = 18 + Math.floor(Math.random() * 17); // 18..34
+      const stats = generatePlayerStats(age, p.position);
       allSquadRows.push({
         career_id: career.id,
         user_id: input.userId,
@@ -52,6 +61,12 @@ export async function createCareer(input: NewCareerInput) {
         overall: p.overall,
         weekly_wage_eur: p.weeklyWage,
         market_value_eur: p.marketValue,
+        age,
+        potential: Math.max(p.overall, stats.potential),
+        attack: stats.attack,
+        defense: stats.defense,
+        physical: stats.physical,
+        technique: stats.technique,
       });
     });
   });
@@ -63,16 +78,22 @@ export async function createCareer(input: NewCareerInput) {
   const allNames = new Set<string>();
   (Object.values(SQUADS).flat() as { name: string }[]).forEach((p) => allNames.add(p.name));
 
-  const marketRows = MARKET_SEED.filter((m) => !allNames.has(m.name)).map((m) => ({
-    career_id: career.id,
-    user_id: input.userId,
-    name: m.name,
-    position: m.position,
-    overall: m.overall,
-    market_value_eur: m.marketValue,
-    expected_wage_eur: m.expectedWage,
-    region: m.region,
-  }));
+  const marketRows = MARKET_SEED.filter((m) => !allNames.has(m.name)).map((m) => {
+    const age = 19 + Math.floor(Math.random() * 14); // 19..32
+    const stats = generatePlayerStats(age, m.position);
+    return {
+      career_id: career.id,
+      user_id: input.userId,
+      name: m.name,
+      position: m.position,
+      overall: m.overall,
+      market_value_eur: m.marketValue,
+      expected_wage_eur: m.expectedWage,
+      region: m.region,
+      age,
+      potential: Math.max(m.overall, stats.potential),
+    };
+  });
 
   if (marketRows.length > 0) {
     const { error: mErr } = await supabase.from("market_players").insert(marketRows);
