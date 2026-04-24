@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { Heart, ShieldAlert, Stethoscope, Pencil, Plus, Sparkles } from "lucide-react";
+import { Heart, ShieldAlert, Stethoscope, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { generatePlayerStats, randomPlayerName, estimateValue } from "@/lib/players";
 import type { Position } from "@/data/squads";
 
@@ -202,39 +202,114 @@ function ElencoPage() {
   );
 }
 
-function EditPlayerDialog({ player, onEdit }: { player: SquadRow; onEdit: (id: string, name: string, age: number, position: Position) => Promise<void> }) {
+interface EditPatch {
+  name: string;
+  age: number;
+  position: Position;
+  overall: number;
+  potential: number;
+  attack: number;
+  defense: number;
+  physical: number;
+  technique: number;
+  weekly_wage_eur: number;
+}
+
+function EditPlayerDialog({ player, onEdit }: { player: SquadRow; onEdit: (id: string, patch: EditPatch) => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(player.name);
   const [age, setAge] = useState(player.age);
   const [position, setPosition] = useState<Position>(player.position as Position);
+  const [overall, setOverall] = useState(player.overall);
+  const [potential, setPotential] = useState(player.potential);
+  const [attack, setAttack] = useState(player.attack);
+  const [defense, setDefense] = useState(player.defense);
+  const [physical, setPhysical] = useState(player.physical);
+  const [technique, setTechnique] = useState(player.technique);
+  const [wage, setWage] = useState(player.weekly_wage_eur);
   const [busy, setBusy] = useState(false);
+
+  // reset state when opening with a different player
+  useEffect(() => {
+    if (open) {
+      setName(player.name);
+      setAge(player.age);
+      setPosition(player.position as Position);
+      setOverall(player.overall);
+      setPotential(player.potential);
+      setAttack(player.attack);
+      setDefense(player.defense);
+      setPhysical(player.physical);
+      setTechnique(player.technique);
+      setWage(player.weekly_wage_eur);
+    }
+  }, [open, player]);
+
+  const num = (v: string, fallback: number) => {
+    const n = parseInt(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-7 px-2"><Pencil className="h-3.5 w-3.5" /></Button>
+        <Button variant="secondary" size="sm" className="h-7 gap-1 px-2 text-xs"><Pencil className="h-3.5 w-3.5" />Editar</Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar jogador</DialogTitle>
-          <DialogDescription>Mudanças impactam escalação e mercado.</DialogDescription>
+          <DialogDescription>Disponível durante toda a temporada. Mudanças impactam escalação e mercado.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5"><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>Idade</Label><Input type="number" min={15} max={45} value={age} onChange={(e) => setAge(parseInt(e.target.value) || 18)} /></div>
-          <div className="space-y-1.5">
-            <Label>Posição</Label>
-            <Select value={position} onValueChange={(v) => setPosition(v as Position)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {POSITIONS.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5"><Label>Idade</Label><Input type="number" min={15} max={45} value={age} onChange={(e) => setAge(num(e.target.value, 18))} /></div>
+            <div className="space-y-1.5 col-span-2">
+              <Label>Posição</Label>
+              <Select value={position} onValueChange={(v) => setPosition(v as Position)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {POSITIONS.map((pos) => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5"><Label>Overall</Label><Input type="number" min={40} max={99} value={overall} onChange={(e) => setOverall(num(e.target.value, 70))} /></div>
+            <div className="space-y-1.5"><Label>Potencial</Label><Input type="number" min={40} max={99} value={potential} onChange={(e) => setPotential(num(e.target.value, 80))} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5"><Label>Ataque</Label><Input type="number" min={40} max={99} value={attack} onChange={(e) => setAttack(num(e.target.value, 70))} /></div>
+            <div className="space-y-1.5"><Label>Defesa</Label><Input type="number" min={40} max={99} value={defense} onChange={(e) => setDefense(num(e.target.value, 70))} /></div>
+            <div className="space-y-1.5"><Label>Físico</Label><Input type="number" min={40} max={99} value={physical} onChange={(e) => setPhysical(num(e.target.value, 70))} /></div>
+            <div className="space-y-1.5"><Label>Técnica</Label><Input type="number" min={40} max={99} value={technique} onChange={(e) => setTechnique(num(e.target.value, 70))} /></div>
+          </div>
+          <div className="space-y-1.5"><Label>Salário semanal (€)</Label><Input type="number" min={0} step={1000} value={wage} onChange={(e) => setWage(num(e.target.value, 0))} /></div>
         </div>
         <DialogFooter>
-          <Button onClick={async () => { if (!name.trim()) return; setBusy(true); await onEdit(player.id, name.trim(), age, position); setBusy(false); setOpen(false); }} disabled={busy} className="w-full">
-            {busy ? "Salvando..." : "Salvar"}
+          <Button
+            onClick={async () => {
+              if (!name.trim()) return;
+              setBusy(true);
+              await onEdit(player.id, {
+                name: name.trim(),
+                age,
+                position,
+                overall: Math.max(40, Math.min(99, overall)),
+                potential: Math.max(40, Math.min(99, Math.max(potential, overall))),
+                attack: Math.max(40, Math.min(99, attack)),
+                defense: Math.max(40, Math.min(99, defense)),
+                physical: Math.max(40, Math.min(99, physical)),
+                technique: Math.max(40, Math.min(99, technique)),
+                weekly_wage_eur: Math.max(0, wage),
+              });
+              setBusy(false);
+              setOpen(false);
+            }}
+            disabled={busy}
+            className="w-full"
+          >
+            {busy ? "Salvando..." : "Salvar alterações"}
           </Button>
         </DialogFooter>
       </DialogContent>
