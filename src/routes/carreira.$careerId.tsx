@@ -49,6 +49,7 @@ function CareerLayout() {
   }
 
   const club = CLUBS[career.club_slug as ClubSlug];
+  const isPreseason = location.pathname.endsWith("/preparacao");
   const tabs: Array<{
     to: "/carreira/$careerId" | "/carreira/$careerId/elenco" | "/carreira/$careerId/jogo" | "/carreira/$careerId/mercado" | "/carreira/$careerId/propostas" | "/carreira/$careerId/tabela" | "/carreira/$careerId/noticias";
     label: string;
@@ -98,7 +99,13 @@ function CareerLayout() {
               </div>
             </div>
 
-            <nav className="mt-5 flex flex-wrap gap-1">
+            {isPreseason ? (
+              <div className="mt-5 flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+                <CalendarClock className="h-4 w-4 text-primary" />
+                <span className="font-medium">Pré-temporada — prepare seu elenco e clique em <strong>Iniciar temporada</strong> quando estiver pronto.</span>
+              </div>
+            ) : (
+              <nav className="mt-5 flex flex-wrap gap-1">
               {tabs.map((t) => {
                 const isActive = t.exact
                   ? location.pathname === `/carreira/${careerId}` || location.pathname === `/carreira/${careerId}/`
@@ -120,7 +127,8 @@ function CareerLayout() {
                   </Link>
                 );
               })}
-            </nav>
+              </nav>
+            )}
           </div>
         </header>
 
