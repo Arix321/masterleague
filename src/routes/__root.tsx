@@ -35,10 +35,14 @@ export const Route = createRootRoute({
       { name: "description", content: "Modo carreira interativo de futebol: você controla resultados, mercado, escalação e narrativa." },
       { name: "author", content: "Minha Liga" },
       { property: "og:title", content: "Minha Liga — Modo Carreira" },
-      { property: "og:description", content: "Assuma um clube, controle os resultados e viva uma carreira completa." },
+      { property: "og:description", content: "Modo carreira interativo de futebol: você controla resultados, mercado, escalação e narrativa." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Minha Liga — Modo Carreira" },
+      { name: "twitter:description", content: "Modo carreira interativo de futebol: você controla resultados, mercado, escalação e narrativa." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/06f1f3f3-34b4-4183-b11e-a188330dbfa2" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/06f1f3f3-34b4-4183-b11e-a188330dbfa2" },
     ],
     links: [
       {
