@@ -74,24 +74,34 @@ export async function createCareer(input: NewCareerInput) {
   const { error: squadErr } = await supabase.from("squad_players").insert(allSquadRows);
   if (squadErr) throw squadErr;
 
-  // Mercado: filtrar para não duplicar nomes que já estão em algum elenco
-  const allNames = new Set<string>();
-  (Object.values(SQUADS).flat() as { name: string }[]).forEach((p) => allNames.add(p.name));
+  // Mercado: remover qualquer jogador que já esteja no elenco do CLUBE SELECIONADO
+  // (jogadores que estão em outros times do jogo continuam disponíveis no mercado).
+  const ownedNames = new Set<string>(squad.map((p) => p.name));
 
-  const marketRows = MARKET_SEED.filter((m) => !allNames.has(m.name)).map((m) => {
+  // Remover duplicatas dentro do próprio MARKET_SEED (mantém a primeira ocorrência,
+  // e como a lista está ordenada por valor, fica a entrada de maior valor).
+  const seen = new Set<string>();
+  const dedupedMarket = MARKET_SEED.filter((mp) => {
+    if (seen.has(mp.name)) return false;
+    seen.add(mp.name);
+    return true;
+  });
+
+  const marketRows = dedupedMarket.filter((mp) => !ownedNames.has(mp.name)).map((mp) => {
     const age = 19 + Math.floor(Math.random() * 14); // 19..32
-    const stats = generatePlayerStats(age, m.position);
+    const stats = generatePlayerStats(age, mp.position);
     return {
       career_id: career.id,
       user_id: input.userId,
-      name: m.name,
-      position: m.position,
-      overall: m.overall,
-      market_value_eur: m.marketValue,
-      expected_wage_eur: m.expectedWage,
-      region: m.region,
+      name: mp.name,
+      position: mp.position,
+      overall: mp.overall,
+      market_value_eur: mp.marketValue,
+      expected_wage_eur: mp.expectedWage,
+      region: mp.region,
+      current_club: mp.currentClub,
       age,
-      potential: Math.max(m.overall, stats.potential),
+      potential: Math.max(mp.overall, stats.potential),
     };
   });
 
