@@ -119,32 +119,92 @@ export const SQUADS: Record<ClubSlug, SeedPlayer[]> = {
   ],
 };
 
-export const MARKET_SEED: Array<{ name: string; position: Position; overall: number; marketValue: number; expectedWage: number; region: string }> = [
-  // Brasil
-  { name: "Neymar",            position: "ATA", overall: 86, marketValue: 10_600_000,  expectedWage: 600_000, region: "Brasil" },
-  { name: "Yuri Alberto",      position: "ATA", overall: 82, marketValue: 22_000_000,  expectedWage: 180_000, region: "Brasil" },
-  { name: "Danilo",            position: "ZAG", overall: 80, marketValue: 22_000_000,  expectedWage: 250_000, region: "Brasil" },
-  { name: "Kaio Jorge",        position: "ATA", overall: 80, marketValue: 22_000_000,  expectedWage: 160_000, region: "Brasil" },
-  { name: "Gerson",            position: "MEI", overall: 82, marketValue: 18_000_000,  expectedWage: 200_000, region: "Brasil" },
-  { name: "Breno Bidon",       position: "VOL", overall: 76, marketValue: 14_000_000,  expectedWage: 90_000,  region: "Brasil" },
-  { name: "Martinelli",        position: "ATA", overall: 83, marketValue: 14_000_000,  expectedWage: 250_000, region: "Brasil" },
-  { name: "Matheus Pereira",   position: "MEI", overall: 80, marketValue: 14_000_000,  expectedWage: 130_000, region: "Brasil" },
-  { name: "Facundo Torres",    position: "ATA", overall: 80, marketValue: 13_000_000,  expectedWage: 130_000, region: "Brasil" },
-  { name: "Rodrigo Garro",     position: "MEI", overall: 80, marketValue: 12_000_000,  expectedWage: 140_000, region: "Brasil" },
-  { name: "Renan Lodi",        position: "LAT", overall: 79, marketValue: 12_000_000,  expectedWage: 160_000, region: "Brasil" },
-  { name: "Hércules",          position: "VOL", overall: 78, marketValue: 12_000_000,  expectedWage: 100_000, region: "Brasil" },
-  { name: "Luis Sinisterra",   position: "ATA", overall: 79, marketValue: 12_000_000,  expectedWage: 150_000, region: "Brasil" },
-  { name: "Fabrício Bruno",    position: "ZAG", overall: 80, marketValue: 12_000_000,  expectedWage: 140_000, region: "Brasil" },
-  { name: "Jean Lucas",        position: "VOL", overall: 77, marketValue: 12_000_000,  expectedWage: 110_000, region: "Brasil" },
-  // Europa
-  { name: "Bukayo Saka",       position: "ATA", overall: 89, marketValue: 120_000_000, expectedWage: 600_000, region: "Inglaterra" },
-  { name: "Cole Palmer",       position: "MEI", overall: 88, marketValue: 110_000_000, expectedWage: 550_000, region: "Inglaterra" },
-  { name: "Bruno Guimarães",   position: "VOL", overall: 86, marketValue: 75_000_000,  expectedWage: 380_000, region: "Inglaterra" },
-  { name: "Antony",            position: "ATA", overall: 81, marketValue: 45_000_000,  expectedWage: 280_000, region: "Espanha" },
-  { name: "Joan García",       position: "GOL", overall: 82, marketValue: 25_000_000,  expectedWage: 200_000, region: "Espanha" },
-  { name: "Luis Milla",        position: "MEI", overall: 79, marketValue: 40_000_000,  expectedWage: 180_000, region: "Espanha" },
-  { name: "Takefusa Kubo",     position: "ATA", overall: 84, marketValue: 50_000_000,  expectedWage: 250_000, region: "Espanha" },
-  { name: "Gonçalo Guedes",    position: "ATA", overall: 80, marketValue: 35_000_000,  expectedWage: 220_000, region: "Espanha" },
-  { name: "Álvaro García",     position: "ATA", overall: 79, marketValue: 28_000_000,  expectedWage: 160_000, region: "Espanha" },
-  { name: "Toni Martínez",     position: "ATA", overall: 78, marketValue: 22_000_000,  expectedWage: 130_000, region: "Espanha" },
+export interface MarketSeedPlayer {
+  name: string;
+  position: Position;
+  overall: number;
+  marketValue: number;
+  expectedWage: number;
+  region: string;
+  currentClub: string;
+}
+
+// Helper para gerar overall e salário aproximados a partir do valor de mercado.
+const ovrFromValue = (eur: number) => {
+  if (eur >= 50_000_000) return 86;
+  if (eur >= 25_000_000) return 84;
+  if (eur >= 18_000_000) return 82;
+  if (eur >= 12_000_000) return 80;
+  if (eur >= 7_000_000) return 78;
+  if (eur >= 3_000_000) return 75;
+  return 72;
+};
+const wageFromValue = (eur: number) => Math.max(40_000, Math.round(eur * 0.012));
+
+const m = (
+  name: string,
+  position: Position,
+  marketValue: number,
+  currentClub: string,
+  region = "Brasil",
+): MarketSeedPlayer => ({
+  name,
+  position,
+  overall: ovrFromValue(marketValue),
+  marketValue,
+  expectedWage: wageFromValue(marketValue),
+  region,
+  currentClub,
+});
+
+// Lista oficial do mercado (substitui qualquer versão anterior).
+// Duplicatas foram removidas, mantendo a entrada com maior valor de mercado.
+export const MARKET_SEED: MarketSeedPlayer[] = [
+  m("Estêvão",                "ATA", 50_000_000, "Chelsea",            "Inglaterra"),
+  m("Endrick",                "ATA", 20_000_000, "Lyon",               "França"),
+  m("Vitor Roque",            "ATA", 35_000_000, "Palmeiras",          "Brasil"),
+  m("Thiago Almada",          "MEI", 27_000_000, "Atlético de Madrid", "Espanha"),
+  m("Rayan",                  "ATA", 25_000_000, "Bournemouth",        "Inglaterra"),
+  m("Luiz Henrique",          "ATA", 22_000_000, "Zenit",              "Rússia"),
+  m("Danilo",                 "VOL", 22_000_000, "Flamengo",           "Brasil"),
+  m("Yuri Alberto",           "ATA", 22_000_000, "Corinthians",        "Brasil"),
+  m("Kaio Jorge",             "ATA", 22_000_000, "Cruzeiro",           "Brasil"),
+  m("Flaco López",            "MEI", 20_000_000, "Palmeiras",          "Brasil"),
+  m("Samuel Lino",            "ATA", 20_000_000, "Atlético de Madrid", "Espanha"),
+  m("Nico de la Cruz",        "MEI", 18_000_000, "Flamengo",           "Brasil"),
+  m("Gerson",                 "MEI", 18_000_000, "Cruzeiro",           "Brasil"),
+  m("Pedro",                  "ATA", 18_000_000, "Flamengo",           "Brasil"),
+  m("Raphael Veiga",          "MEI", 17_000_000, "Club América",       "México"),
+  m("Paulinho",               "ATA", 17_000_000, "Palmeiras",          "Brasil"),
+  m("Jhon Arias",             "ATA", 16_000_000, "Palmeiras",          "Brasil"),
+  m("Yan Couto",              "LAT", 15_000_000, "Girona",             "Espanha"),
+  m("Igor Jesus",             "ATA", 15_000_000, "Bournemouth",        "Inglaterra"),
+  m("Andreas Pereira",        "MEI", 15_000_000, "Palmeiras",          "Brasil"),
+  m("Léo Ortiz",              "ZAG", 15_000_000, "Flamengo",           "Brasil"),
+  m("Giorgian de Arrascaeta", "MEI", 15_000_000, "Flamengo",           "Brasil"),
+  m("Marcos Leonardo",        "ATA", 14_000_000, "Benfica",            "Portugal"),
+  m("Zaracho",                "VOL", 14_000_000, "Atlético Mineiro",   "Brasil"),
+  m("Arana",                  "LAT", 14_000_000, "Atlético Mineiro",   "Brasil"),
+  m("Vitor Reis",             "ZAG", 14_000_000, "Sevilla",            "Espanha"),
+  m("Breno Bidon",            "MEI", 14_000_000, "Corinthians",        "Brasil"),
+  m("Martinelli",             "VOL", 14_000_000, "Fluminense",         "Brasil"),
+  m("Joaquín Piquerez",       "LAT", 14_000_000, "Palmeiras",          "Brasil"),
+  m("Matheus Pereira",        "MEI", 14_000_000, "Cruzeiro",           "Brasil"),
+  m("Ângelo Gabriel",         "ATA", 13_000_000, "Al-Nassr",           "Arábia Saudita"),
+  m("Facundo Torres",         "ATA", 13_000_000, "Fluminense",         "Brasil"),
+  m("Mauricio",               "MEI", 12_000_000, "Palmeiras",          "Brasil"),
+  m("Rodrigo Garro",          "MEI", 12_000_000, "Corinthians",        "Brasil"),
+  m("Renan Lodi",             "LAT", 12_000_000, "Al-Duhail",          "Catar"),
+  m("Luis Sinisterra",        "ATA", 12_000_000, "Bournemouth",        "Inglaterra"),
+  m("Fabrício Bruno",         "ZAG", 12_000_000, "Cruzeiro",           "Brasil"),
+  m("Jean Lucas",             "MEI", 12_000_000, "Bahia",              "Brasil"),
+  m("Gabriel Carvalho",       "MEI",  9_000_000, "Internacional",      "Brasil"),
+  m("Hugo Souza",             "GOL",  8_000_000, "Corinthians",        "Brasil"),
+  m("John",                   "GOL",  7_000_000, "Botafogo",           "Brasil"),
+  m("Marlon Freitas",         "VOL",  7_000_000, "Palmeiras",          "Brasil"),
+  m("Gregore",                "VOL",  6_000_000, "Botafogo",           "Brasil"),
+  m("Bernabei",               "LAT",  6_000_000, "Internacional",      "Brasil"),
+  m("Alexander Barboza",      "ZAG",  5_000_000, "Botafogo",           "Brasil"),
+  m("Rômulo",                 "VOL",  4_000_000, "Internacional",      "Brasil"),
+  m("Rodrigo Sam",            "ZAG",    350_000, "Mirassol",           "Brasil"),
 ];
