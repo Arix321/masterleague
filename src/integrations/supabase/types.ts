@@ -148,6 +148,7 @@ export type Database = {
           age: number
           career_id: string
           created_at: string
+          current_club: string
           expected_wage_eur: number
           id: string
           market_value_eur: number
@@ -162,6 +163,7 @@ export type Database = {
           age?: number
           career_id: string
           created_at?: string
+          current_club?: string
           expected_wage_eur?: number
           id?: string
           market_value_eur: number
@@ -176,6 +178,7 @@ export type Database = {
           age?: number
           career_id?: string
           created_at?: string
+          current_club?: string
           expected_wage_eur?: number
           id?: string
           market_value_eur?: number
