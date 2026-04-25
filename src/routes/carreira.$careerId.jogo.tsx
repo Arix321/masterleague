@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { fanReaction, postMatchHeadline } from "@/lib/narrative";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  fanReaction,
+  postMatchHeadline,
+  postMatchPressIntro,
+  postMatchPressQuestions,
+} from "@/lib/narrative";
 import { toast } from "sonner";
-import { Trophy, ChevronRight } from "lucide-react";
+import { Trophy, ChevronRight, Mic, ChevronLeft } from "lucide-react";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
@@ -45,6 +52,15 @@ function JogoPage() {
   const [assists, setAssists] = useState("");
   const [position, setPosition] = useState(career.league_position);
   const [busy, setBusy] = useState(false);
+
+  // Coletiva pós-jogo
+  const [pressOpen, setPressOpen] = useState(false);
+  const [pressIntro, setPressIntro] = useState("");
+  const [pressQuestions, setPressQuestions] = useState<string[]>([]);
+  const [pressIndex, setPressIndex] = useState(0);
+  const [pressAnswer, setPressAnswer] = useState("");
+  const [pressAnswers, setPressAnswers] = useState<{ q: string; a: string }[]>([]);
+  const [pressSaving, setPressSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -204,8 +220,63 @@ function JogoPage() {
     toast.success("Resultado registrado!");
     if (bonus > 0) toast.success(`💰 Bônus por vitória: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(bonus)}`);
     await refresh();
-    navigate({ to: "/carreira/$careerId", params: { careerId } });
+
+    // Abrir coletiva inteligente pós-jogo
+    const ctx = {
+      clubName: club.name,
+      opponent: opponent.trim(),
+      gf,
+      ga,
+      scorers,
+      assists,
+      home,
+      position,
+    };
+    setPressIntro(postMatchPressIntro(ctx));
+    setPressQuestions(postMatchPressQuestions(ctx));
+    setPressIndex(0);
+    setPressAnswer("");
+    setPressAnswers([]);
+    setPressOpen(true);
     setBusy(false);
+  };
+
+  const advancePress = async () => {
+    const currentQ = pressQuestions[pressIndex];
+    const trimmed = pressAnswer.trim();
+    if (!trimmed) {
+      toast.error("Responda à pergunta antes de continuar.");
+      return;
+    }
+    const updated = [...pressAnswers, { q: currentQ, a: trimmed }];
+    setPressAnswers(updated);
+    setPressAnswer("");
+
+    if (pressIndex < pressQuestions.length - 1) {
+      setPressIndex(pressIndex + 1);
+      return;
+    }
+
+    // Última pergunta — salvar coletiva como notícia
+    setPressSaving(true);
+    const body = updated
+      .map((item, i) => `**Pergunta ${i + 1}:** ${item.q}\n\n**Resposta:** ${item.a}`)
+      .join("\n\n---\n\n");
+    const { error } = await supabase.from("news_feed").insert({
+      career_id: career.id,
+      user_id: career.user_id,
+      kind: "press",
+      title: `Coletiva: ${club.name} x ${opponent.trim()}`,
+      body: `${pressIntro}\n\n${body}`,
+    });
+    setPressSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Coletiva publicada na imprensa!");
+    setPressOpen(false);
+    navigate({ to: "/carreira/$careerId", params: { careerId } });
   };
 
   return (
@@ -278,6 +349,65 @@ function JogoPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={pressOpen} onOpenChange={(v) => { if (!pressSaving) setPressOpen(v); }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mic className="h-5 w-5 text-primary" /> Coletiva de imprensa
+            </DialogTitle>
+            <DialogDescription>{pressIntro}</DialogDescription>
+          </DialogHeader>
+
+          {pressQuestions.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Pergunta {pressIndex + 1} de {pressQuestions.length}</span>
+                <span>🎤 Repórter</span>
+              </div>
+              <div className="rounded-md border border-border/50 bg-muted/30 p-4">
+                <p className="text-sm font-medium leading-relaxed">{pressQuestions[pressIndex]}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Sua resposta</Label>
+                <Textarea
+                  value={pressAnswer}
+                  onChange={(e) => setPressAnswer(e.target.value)}
+                  rows={4}
+                  placeholder="Responda como técnico..."
+                  autoFocus
+                />
+              </div>
+              {pressAnswers.length > 0 && (
+                <div className="max-h-32 space-y-2 overflow-y-auto rounded border border-border/40 bg-background/30 p-3 text-xs">
+                  {pressAnswers.map((item, i) => (
+                    <div key={i}>
+                      <p className="font-semibold text-muted-foreground">{i + 1}. {item.q}</p>
+                      <p className="pl-2 text-foreground/80">↳ {item.a}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <div className="flex flex-1 items-center text-xs text-muted-foreground">
+              <ChevronLeft className="mr-1 h-3 w-3" />
+              Suas respostas viram notícia oficial.
+            </div>
+            <Button onClick={advancePress} disabled={pressSaving}>
+              {pressIndex < pressQuestions.length - 1 ? (
+                <>Próxima pergunta <ChevronRight className="ml-1 h-4 w-4" /></>
+              ) : pressSaving ? (
+                "Publicando..."
+              ) : (
+                <>Encerrar coletiva <Mic className="ml-1 h-4 w-4" /></>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
