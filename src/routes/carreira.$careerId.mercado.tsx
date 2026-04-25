@@ -22,6 +22,7 @@ interface MarketRow {
   market_value_eur: number;
   expected_wage_eur: number;
   region: string;
+  current_club: string;
 }
 
 export const Route = createFileRoute("/carreira/$careerId/mercado")({
@@ -38,7 +39,7 @@ function MercadoPage() {
   const load = async () => {
     const { data } = await supabase
       .from("market_players")
-      .select("id, name, position, overall, market_value_eur, expected_wage_eur, region")
+      .select("id, name, position, overall, market_value_eur, expected_wage_eur, region, current_club")
       .eq("career_id", careerId)
       .order("market_value_eur", { ascending: false });
     setMarket((data ?? []) as MarketRow[]);
@@ -46,14 +47,29 @@ function MercadoPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [careerId]);
 
+  const [clubFilter, setClubFilter] = useState<string>("ALL");
+  const [valueOrder, setValueOrder] = useState<"desc" | "asc">("desc");
+
+  const clubOptions = useMemo(() => {
+    const set = new Set<string>();
+    market.forEach((p) => set.add(p.current_club || "Livre"));
+    return Array.from(set).sort();
+  }, [market]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return market.filter((p) => {
+    const list = market.filter((p) => {
       if (posFilter !== "ALL" && p.position !== posFilter) return false;
+      if (clubFilter !== "ALL" && (p.current_club || "Livre") !== clubFilter) return false;
       if (q && !p.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [market, search, posFilter]);
+    return list.sort((a, b) =>
+      valueOrder === "desc"
+        ? b.market_value_eur - a.market_value_eur
+        : a.market_value_eur - b.market_value_eur,
+    );
+  }, [market, search, posFilter, clubFilter, valueOrder]);
 
   const negotiate = async (player: MarketRow, fee: number, wage: number, years: number) => {
     if (!career.transfer_window_open) {
@@ -72,7 +88,7 @@ function MercadoPage() {
       user_id: career.user_id,
       direction: "in",
       player_name: player.name,
-      other_club: player.region,
+      other_club: player.current_club || player.region,
       fee_eur: fee,
       wage_eur: wage,
       contract_years: years,
@@ -108,7 +124,7 @@ function MercadoPage() {
       user_id: career.user_id,
       kind: "headline",
       title: `${club.name} acerta a contratação de ${player.name}`,
-      body: `Valor: ${formatEur(fee)} • Salário: ${formatEur(wage)}/sem • Contrato: ${years} anos`,
+      body: `Vindo do ${player.current_club || player.region}. Valor: ${formatEur(fee)} • Salário: ${formatEur(wage)}/sem • Contrato: ${years} anos`,
     });
     toast.success(`${player.name} é seu novo reforço!`);
     await refresh();
@@ -167,6 +183,28 @@ function MercadoPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="w-48 space-y-1.5">
+            <Label className="text-xs">Time atual</Label>
+            <Select value={clubFilter} onValueChange={setClubFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Todos os times</SelectItem>
+                {clubOptions.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-40 space-y-1.5">
+            <Label className="text-xs">Ordenar valor</Label>
+            <Select value={valueOrder} onValueChange={(v) => setValueOrder(v as "desc" | "asc")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Maior valor</SelectItem>
+                <SelectItem value="asc">Menor valor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="text-xs text-muted-foreground">
             {filtered.length} de {market.length}
           </div>
@@ -184,7 +222,10 @@ function MercadoPage() {
                 </div>
                 <div className="flex-1">
                   <p className="font-bold">{p.name}</p>
-                  <Badge variant="outline" className="mt-1 text-[10px]">{p.region}</Badge>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <Badge variant="secondary" className="text-[10px]">🏟️ {p.current_club || "Livre"}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{p.region}</Badge>
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
