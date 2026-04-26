@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isDerby, derbyName } from "@/lib/season";
 import { saveLineup } from "@/lib/lineup";
 import { toast } from "sonner";
-import { Users, ArrowRightLeft, Trash2, Trophy, Plus, ArrowRight, Flame } from "lucide-react";
+import { Users, Trophy, ArrowRight, Flame } from "lucide-react";
+import { POSITION_ORDER, POSITION_LIST, POSITION_LABEL, normalizePosition, type Position } from "@/data/squads";
 
 interface SquadRow {
   id: string;
@@ -34,7 +35,6 @@ function EscalacaoPage() {
   const [players, setPlayers] = useState<SquadRow[]>([]);
   const [starters, setStarters] = useState<Set<string>>(new Set());
   const [bench, setBench] = useState<Set<string>>(new Set());
-  const [subs, setSubs] = useState<{ outId: string; inId: string; minute: number }[]>([]);
   const [opponent, setOpponent] = useState(career.next_opponent ?? club.rivals[0] ?? "Adversário");
   const [home, setHome] = useState(true);
 
@@ -49,10 +49,28 @@ function EscalacaoPage() {
     })();
   }, [careerId, career.club_slug]);
 
+  // Ordenado por posição (do gol ao centroavante) e depois por overall desc.
   const ordered = useMemo(
-    () => [...players].sort((a, b) => b.overall - a.overall),
+    () =>
+      [...players].sort((a, b) => {
+        const pa = POSITION_ORDER[normalizePosition(a.position)] ?? 99;
+        const pb = POSITION_ORDER[normalizePosition(b.position)] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return b.overall - a.overall;
+      }),
     [players],
   );
+
+  // Agrupa por posição mantendo a ordem do POSITION_LIST.
+  const groupedPlayers = useMemo(() => {
+    const groups = new Map<Position, SquadRow[]>();
+    for (const pos of POSITION_LIST) groups.set(pos, []);
+    for (const p of ordered) {
+      const pos = normalizePosition(p.position);
+      groups.get(pos)!.push(p);
+    }
+    return groups;
+  }, [ordered]);
 
   const toggleStarter = (id: string) => {
     setStarters((prev) => {
@@ -103,22 +121,6 @@ function EscalacaoPage() {
     [ordered, bench],
   );
 
-  const addSub = () => {
-    if (startersList.length === 0 || benchList.length === 0) {
-      toast.error("Você precisa de titulares e reservas para planejar substituições.");
-      return;
-    }
-    setSubs((s) => [...s, { outId: startersList[0].id, inId: benchList[0].id, minute: 60 }]);
-  };
-
-  const updateSub = (index: number, patch: Partial<{ outId: string; inId: string; minute: number }>) => {
-    setSubs((s) => s.map((sub, i) => (i === index ? { ...sub, ...patch } : sub)));
-  };
-
-  const removeSub = (index: number) => {
-    setSubs((s) => s.filter((_, i) => i !== index));
-  };
-
   const proceed = () => {
     if (starters.size !== 11) {
       toast.error(`Escale 11 titulares (${starters.size}/11).`);
@@ -132,7 +134,7 @@ function EscalacaoPage() {
       matchday: career.matchday,
       starters: Array.from(starters),
       bench: Array.from(bench),
-      subs,
+      subs: [], // substituições agora são feitas durante o jogo
       opponent: opponent.trim(),
       home,
     });
