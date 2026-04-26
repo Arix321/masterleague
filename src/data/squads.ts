@@ -207,4 +207,37 @@ export const MARKET_SEED: MarketSeedPlayer[] = [
   m("Alexander Barboza",      "ZAG",  5_000_000, "Botafogo",           "Brasil"),
   m("Rômulo",                 "VOL",  4_000_000, "Internacional",      "Brasil"),
   m("Rodrigo Sam",            "ZAG",    350_000, "Mirassol",           "Brasil"),
+  // ===== Adições — Goleiros =====
+  m("Alisson Becker",         "GOL", 35_000_000, "Liverpool",          "Inglaterra"),
+  m("Ederson Moraes",         "GOL", 30_000_000, "Manchester City",    "Inglaterra"),
+  m("Jordan Pickford",        "GOL", 25_000_000, "Everton",            "Inglaterra"),
+  m("David Raya",             "GOL", 22_000_000, "Arsenal",            "Inglaterra"),
+  m("Mark Travers",           "GOL", 15_000_000, "AFC Bournemouth",    "Inglaterra"),
+  m("Bento",                  "GOL", 10_000_000, "Athletico Paranaense", "Brasil"),
+  // ===== Adições — Zagueiros =====
+  m("Virgil van Dijk",        "ZAG", 45_000_000, "Liverpool",          "Inglaterra"),
+  m("Gabriel Magalhães",      "ZAG", 40_000_000, "Arsenal",            "Inglaterra"),
+  m("Joachim Andersen",       "ZAG", 30_000_000, "Fulham",             "Inglaterra"),
+  m("Marc Cucurella",         "ZAG", 25_000_000, "Chelsea",            "Inglaterra"),
+  m("Nicolás Otamendi",       "ZAG",  8_000_000, "Manchester City",    "Inglaterra"),
+  // ===== Adições — Laterais =====
+  m("Trent Alexander-Arnold", "LAT", 80_000_000, "Liverpool",          "Inglaterra"),
+  m("Myles Lewis-Skelly",     "LAT", 40_000_000, "Arsenal",            "Inglaterra"),
+  m("Jorrel Hato",            "LAT", 38_000_000, "Chelsea",            "Inglaterra"),
+  m("Luke Shaw",              "LAT", 35_000_000, "Manchester United",  "Inglaterra"),
+  m("Ayrton Lucas",           "LAT", 14_000_000, "Flamengo",           "Brasil"),
+  // ===== Adições — Meias / Meio-campistas =====
+  m("Declan Rice",            "VOL",120_000_000, "Arsenal",            "Inglaterra"),
+  m("Moisés Caicedo",         "VOL",110_000_000, "Chelsea",            "Inglaterra"),
+  m("Cole Palmer",            "MEI",110_000_000, "Chelsea",            "Inglaterra"),
+  m("Bruno Guimarães",        "VOL", 80_000_000, "Newcastle",          "Inglaterra"),
+  m("Bruno Fernandes",        "MEI", 80_000_000, "Manchester United",  "Inglaterra"),
+  m("Douglas Luiz",           "VOL", 45_000_000, "Aston Villa",        "Inglaterra"),
+  m("Lucas Paquetá",          "MEI", 35_000_000, "Flamengo",           "Brasil"),
+  m("André",                  "VOL", 18_000_000, "Fluminense",         "Brasil"),
+  m("João Gomes",             "VOL", 16_000_000, "Flamengo",           "Brasil"),
+];
+
+// Sentinela: garante que a edição não quebrou a lista.
+export const MARKET_SEED_COUNT = MARKET_SEED.length;
 ];
