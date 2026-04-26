@@ -13,6 +13,7 @@ import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
 import { Handshake, Store, Lock, Search, X } from "lucide-react";
 import React from "react";
+import { nextWindowChange, windowClosesAt } from "@/lib/season";
 
 interface MarketRow {
   id: string;
@@ -141,8 +142,8 @@ function MercadoPage() {
           </CardTitle>
           <CardDescription>
             {career.transfer_window_open
-              ? `Janela aberta até a rodada ${career.transfer_window_closes_at}. Caixa: ${formatEur(career.cash_eur)}.`
-              : "Janela fechada. Aguarde a próxima abertura para contratar."}
+              ? `Janela aberta até a rodada ${windowClosesAt(career.matchday)}. Caixa: ${formatEur(career.cash_eur)}.`
+              : `Janela fechada. Reabre na rodada ${nextWindowChange(career.matchday)}.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-3 pt-0">
