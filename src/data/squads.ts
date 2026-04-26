@@ -1,6 +1,64 @@
 import type { ClubSlug } from "./clubs";
 
-export type Position = "GOL" | "ZAG" | "LAT" | "VOL" | "MEI" | "ATA";
+// Posições oficiais do jogo. Códigos curtos usados em toda a UI.
+// MDF = Meia Defensivo • MCT = Meia Central • MAT = Meia Atacante
+// PTA = Ponta • CA = Centroavante
+export type Position =
+  | "GOL"
+  | "ZAG"
+  | "LAT"
+  | "VOL"
+  | "MDF"
+  | "MCT"
+  | "MAT"
+  | "PTA"
+  | "CA";
+
+// Ordem de campo do goleiro ao centroavante. Usada para ordenar listas.
+export const POSITION_LIST: Position[] = [
+  "GOL",
+  "ZAG",
+  "LAT",
+  "VOL",
+  "MDF",
+  "MCT",
+  "MAT",
+  "PTA",
+  "CA",
+];
+
+export const POSITION_ORDER: Record<string, number> = POSITION_LIST.reduce(
+  (acc, pos, i) => {
+    acc[pos] = i;
+    return acc;
+  },
+  {} as Record<string, number>,
+);
+
+export const POSITION_LABEL: Record<Position, string> = {
+  GOL: "Goleiro",
+  ZAG: "Zagueiro",
+  LAT: "Lateral",
+  VOL: "Volante",
+  MDF: "Meia Defensivo",
+  MCT: "Meia Central",
+  MAT: "Meia Atacante",
+  PTA: "Ponta",
+  CA:  "Centroavante",
+};
+
+// Mapeia códigos legados (registros antigos no banco) para os novos.
+const LEGACY_POSITION_MAP: Record<string, Position> = {
+  MEI: "MCT", // Meia genérico → Meia Central
+  ATA: "CA",  // Atacante genérico → Centroavante
+};
+
+/** Converte uma string de posição (incluindo códigos antigos) em um Position válido. */
+export function normalizePosition(pos: string | null | undefined): Position {
+  if (!pos) return "MCT";
+  if ((POSITION_LIST as string[]).includes(pos)) return pos as Position;
+  return LEGACY_POSITION_MAP[pos] ?? "MCT";
+}
 
 export interface SeedPlayer {
   name: string;
