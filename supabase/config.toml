@@ -1,1 +1,4 @@
 project_id = "llqjluuhkibnoogsaybn"
+
+[functions.press-conference]
+verify_jwt = false

@@ -315,6 +315,7 @@ export type Database = {
           technique: number
           user_id: string
           weekly_wage_eur: number
+          yellow_cards_season: number
         }
         Insert: {
           age?: number
@@ -337,6 +338,7 @@ export type Database = {
           technique?: number
           user_id: string
           weekly_wage_eur?: number
+          yellow_cards_season?: number
         }
         Update: {
           age?: number
@@ -359,6 +361,7 @@ export type Database = {
           technique?: number
           user_id?: string
           weekly_wage_eur?: number
+          yellow_cards_season?: number
         }
         Relationships: [
           {

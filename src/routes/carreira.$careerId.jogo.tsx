@@ -13,7 +13,6 @@ import {
   fanReaction,
   postMatchHeadline,
   postMatchPressIntro,
-  postMatchPressQuestions,
 } from "@/lib/narrative";
 import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
 import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
@@ -34,6 +33,7 @@ interface SquadRow {
   age: number;
   market_value_eur: number;
   weekly_wage_eur: number;
+  yellow_cards_season: number;
 }
 
 type StatKey = "goals" | "assists" | "yellow" | "red";
@@ -99,12 +99,72 @@ function JogoPage() {
   const [pressAnswer, setPressAnswer] = useState("");
   const [pressAnswers, setPressAnswers] = useState<{ q: string; a: string }[]>([]);
   const [pressSaving, setPressSaving] = useState(false);
+  const [pressLoading, setPressLoading] = useState(false);
+  const [pressCtx, setPressCtx] = useState<{
+    clubName: string;
+    opponent: string;
+    gf: number;
+    ga: number;
+    home: boolean;
+    position: number;
+    matchday: number;
+    derby: string | null;
+    scorers: string;
+    assists: string;
+    yellow: string;
+    red: string;
+  } | null>(null);
+  const [pressTotal, setPressTotal] = useState(4); // total alvo de perguntas
+
+  // Chama edge function pra gerar a próxima pergunta da coletiva.
+  const fetchNextAIQuestion = async (
+    previousAnswers: { q: string; a: string }[],
+    extra?: { yellow?: string; red?: string; derby?: string | null; matchday?: number },
+  ) => {
+    const baseCtx = pressCtx;
+    if (!baseCtx && !extra) return;
+    const ctx = {
+      ...(baseCtx ?? {
+        clubName: club.name,
+        opponent: opponent.trim(),
+        gf,
+        ga,
+        home,
+        position,
+        matchday: career.matchday,
+        derby: extra?.derby ?? null,
+        scorers: namesFromCount(goals, players),
+        assists: namesFromCount(assists, players),
+        yellow: extra?.yellow ?? "",
+        red: extra?.red ?? "",
+      }),
+      previousAnswers,
+    };
+    setPressLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("press-conference", {
+        body: { context: ctx, count: 1 },
+      });
+      if (error) throw error;
+      const q = (data?.questions?.[0] as string | undefined)?.trim();
+      if (q) {
+        setPressQuestions((prev) => [...prev, q]);
+      } else {
+        toast.error("Não foi possível gerar a próxima pergunta.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao gerar pergunta.";
+      toast.error(msg);
+    } finally {
+      setPressLoading(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur")
+        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
@@ -198,7 +258,17 @@ function JogoPage() {
       toast.error("Um jogador só pode receber 1 vermelho.");
       return;
     }
+    if (key === "yellow" && nextVal > 2) {
+      toast.error("Máximo de 2 amarelos por jogador. O 2º amarelo já significa expulsão.");
+      return;
+    }
     setter({ ...current, [playerId]: nextVal });
+    // 2 amarelos = expulsão automática (1 vermelho).
+    if (key === "yellow" && nextVal === 2 && (red[playerId] ?? 0) === 0) {
+      setRed((r) => ({ ...r, [playerId]: 1 }));
+      const p = players.find((pp) => pp.id === playerId);
+      if (p) toast.warning(`🟨🟨 ${p.name} levou o 2º amarelo e foi expulso!`);
+    }
   };
 
   const submit = async () => {
@@ -258,6 +328,35 @@ function JogoPage() {
     // Vermelho => suspenso (injured proxy)
     for (const [id, n] of Object.entries(red)) {
       if (n > 0) await supabase.from("squad_players").update({ injured: true }).eq("id", id);
+    }
+
+    // Amarelos da temporada: 3 amarelos em jogos diferentes => suspensão + reset.
+    // 2 amarelos no mesmo jogo (já viraram vermelho acima) NÃO contam pro acumulado.
+    for (const [id, n] of Object.entries(yellow)) {
+      const p = players.find((x) => x.id === id);
+      if (!p || n <= 0) continue;
+      const tookRed = (red[id] ?? 0) > 0;
+      if (tookRed) continue; // já está suspenso por vermelho; não acumula amarelo
+      const newTotal = (p.yellow_cards_season ?? 0) + 1; // 1 amarelo por jogo conta
+      if (newTotal >= 3) {
+        // Suspensão por acúmulo: marca como injured (proxy de suspensão) e zera contador.
+        await supabase
+          .from("squad_players")
+          .update({ yellow_cards_season: 0, injured: true })
+          .eq("id", p.id);
+        await supabase.from("news_feed").insert({
+          career_id: career.id,
+          user_id: career.user_id,
+          kind: "headline",
+          title: `${p.name} suspenso por acúmulo de amarelos`,
+          body: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}. Após cumprir suspensão, o contador será zerado.`,
+        });
+      } else {
+        await supabase
+          .from("squad_players")
+          .update({ yellow_cards_season: newTotal })
+          .eq("id", p.id);
+      }
     }
 
     const nextOpp = club.rivals[(career.matchday) % club.rivals.length] ?? "Adversário";
@@ -421,25 +520,86 @@ function JogoPage() {
       clubSlug: club.slug,
     };
     setPressIntro(postMatchPressIntro(ctx));
-    setPressQuestions(postMatchPressQuestions(ctx));
+    setPressQuestions([]);
     setPressIndex(0);
     setPressAnswer("");
     setPressAnswers([]);
+    const fullCtx = {
+      clubName: club.name,
+      opponent: opponent.trim(),
+      gf,
+      ga,
+      home,
+      position,
+      matchday: career.matchday,
+      derby: dName,
+      scorers: scorersStr,
+      assists: assistsStr,
+      yellow: yellowStr,
+      red: redStr,
+    };
+    setPressCtx(fullCtx);
+    setPressTotal(4);
     setPressOpen(true);
     setBusy(false);
+    // Dispara primeira pergunta da IA usando o contexto recém-montado
+    setPressLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("press-conference", {
+        body: { context: { ...fullCtx, previousAnswers: [] }, count: 1 },
+      });
+      if (error) throw error;
+      const q = (data?.questions?.[0] as string | undefined)?.trim();
+      if (q) setPressQuestions([q]);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar pergunta.");
+    } finally {
+      setPressLoading(false);
+    }
   };
 
   const advancePress = async () => {
     const currentQ = pressQuestions[pressIndex];
+    if (!currentQ) return;
     const trimmed = pressAnswer.trim();
     if (!trimmed) { toast.error("Responda à pergunta antes de continuar."); return; }
     const updated = [...pressAnswers, { q: currentQ, a: trimmed }];
     setPressAnswers(updated);
     setPressAnswer("");
 
-    if (pressIndex < pressQuestions.length - 1) {
-      setPressIndex(pressIndex + 1);
-      return;
+    // Ainda não atingiu o total alvo de perguntas: pede próxima pergunta à IA
+    // levando em conta as respostas anteriores (perguntas dinâmicas e contextuais).
+    if (updated.length < pressTotal) {
+      setPressLoading(true);
+      try {
+        const ctxBase = pressCtx ?? {
+          clubName: club.name,
+          opponent: opponent.trim(),
+          gf, ga, home, position,
+          matchday: career.matchday,
+          derby: dName,
+          scorers: namesFromCount(goals, players),
+          assists: namesFromCount(assists, players),
+          yellow: namesFromCount(yellow, players),
+          red: namesFromCount(red, players),
+        };
+        const { data, error } = await supabase.functions.invoke("press-conference", {
+          body: { context: { ...ctxBase, previousAnswers: updated }, count: 1 },
+        });
+        if (error) throw error;
+        const q = (data?.questions?.[0] as string | undefined)?.trim();
+        if (q) {
+          setPressQuestions((prev) => [...prev, q]);
+          setPressIndex(pressIndex + 1);
+          setPressLoading(false);
+          return;
+        }
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Erro ao gerar próxima pergunta.");
+        setPressLoading(false);
+        return;
+      }
+      setPressLoading(false);
     }
 
     setPressSaving(true);
@@ -786,11 +946,18 @@ function JogoPage() {
             <DialogDescription>{pressIntro}</DialogDescription>
           </DialogHeader>
 
+          {pressLoading && pressQuestions.length === 0 && (
+            <div className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <Mic className="h-4 w-4 animate-pulse text-primary" />
+              IA do repórter está formulando a primeira pergunta...
+            </div>
+          )}
+
           {pressQuestions.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Pergunta {pressIndex + 1} de {pressQuestions.length}</span>
-                <span>🎤 Repórter</span>
+                <span>Pergunta {pressIndex + 1} de {pressTotal}</span>
+                <span>🎤 Repórter (IA)</span>
               </div>
               <div className="rounded-md border border-border/50 bg-muted/30 p-4">
                 <p className="text-sm font-medium leading-relaxed">{pressQuestions[pressIndex]}</p>
@@ -821,10 +988,12 @@ function JogoPage() {
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <div className="flex flex-1 items-center text-xs text-muted-foreground">
               <ChevronLeft className="mr-1 h-3 w-3" />
-              Suas respostas viram notícia oficial.
+              Perguntas geradas por IA com base no jogo.
             </div>
-            <Button onClick={advancePress} disabled={pressSaving}>
-              {pressIndex < pressQuestions.length - 1 ? (
+            <Button onClick={advancePress} disabled={pressSaving || pressLoading || pressQuestions.length === 0}>
+              {pressLoading ? (
+                <>Gerando próxima... <Mic className="ml-1 h-4 w-4 animate-pulse" /></>
+              ) : pressAnswers.length + 1 < pressTotal ? (
                 <>Próxima pergunta <ChevronRight className="ml-1 h-4 w-4" /></>
               ) : pressSaving ? (
                 "Publicando..."
