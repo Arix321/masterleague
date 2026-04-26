@@ -122,7 +122,9 @@ function HubIndex() {
             </div>
           </div>
           <Button asChild size="lg" className="w-full">
-            <Link to="/carreira/$careerId/jogo" params={{ careerId }}>Escalar e registrar resultado <ArrowRight className="ml-2 h-4 w-4" /></Link>
+            <Link to="/carreira/$careerId/escalacao" params={{ careerId }}>
+              Escalar o time <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </CardContent>
       </Card>
