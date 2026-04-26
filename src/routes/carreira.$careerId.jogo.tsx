@@ -946,11 +946,18 @@ function JogoPage() {
             <DialogDescription>{pressIntro}</DialogDescription>
           </DialogHeader>
 
+          {pressLoading && pressQuestions.length === 0 && (
+            <div className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
+              <Mic className="h-4 w-4 animate-pulse text-primary" />
+              IA do repórter está formulando a primeira pergunta...
+            </div>
+          )}
+
           {pressQuestions.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Pergunta {pressIndex + 1} de {pressQuestions.length}</span>
-                <span>🎤 Repórter</span>
+                <span>Pergunta {pressIndex + 1} de {pressTotal}</span>
+                <span>🎤 Repórter (IA)</span>
               </div>
               <div className="rounded-md border border-border/50 bg-muted/30 p-4">
                 <p className="text-sm font-medium leading-relaxed">{pressQuestions[pressIndex]}</p>
@@ -981,10 +988,12 @@ function JogoPage() {
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <div className="flex flex-1 items-center text-xs text-muted-foreground">
               <ChevronLeft className="mr-1 h-3 w-3" />
-              Suas respostas viram notícia oficial.
+              Perguntas geradas por IA com base no jogo.
             </div>
-            <Button onClick={advancePress} disabled={pressSaving}>
-              {pressIndex < pressQuestions.length - 1 ? (
+            <Button onClick={advancePress} disabled={pressSaving || pressLoading || pressQuestions.length === 0}>
+              {pressLoading ? (
+                <>Gerando próxima... <Mic className="ml-1 h-4 w-4 animate-pulse" /></>
+              ) : pressAnswers.length + 1 < pressTotal ? (
                 <>Próxima pergunta <ChevronRight className="ml-1 h-4 w-4" /></>
               ) : pressSaving ? (
                 "Publicando..."
