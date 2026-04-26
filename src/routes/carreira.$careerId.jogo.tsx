@@ -360,6 +360,36 @@ function JogoPage() {
     }
 
     const nextOpp = club.rivals[(career.matchday) % club.rivals.length] ?? "Adversário";
+
+    // Retorno automático de jogadores emprestados cuja janela expirou.
+    const { data: returningLoans } = await supabase
+      .from("squad_players")
+      .select("id, name, original_wage_eur, loan_to_club, loan_returns_at_matchday")
+      .eq("career_id", career.id)
+      .eq("on_loan", true)
+      .lte("loan_returns_at_matchday", nextMatchday);
+    if (returningLoans && returningLoans.length > 0) {
+      for (const r of returningLoans) {
+        await supabase
+          .from("squad_players")
+          .update({
+            on_loan: false,
+            loan_to_club: null,
+            loan_returns_at_matchday: null,
+            injured: false,
+            weekly_wage_eur: r.original_wage_eur || 0,
+          })
+          .eq("id", r.id);
+        await supabase.from("news_feed").insert({
+          career_id: career.id,
+          user_id: career.user_id,
+          kind: "transfer",
+          title: `${r.name} retorna de empréstimo`,
+          body: `Após período cedido ao ${r.loan_to_club ?? "clube parceiro"}, ${r.name} se reapresenta e volta a ficar à disposição do ${club.name}.`,
+        });
+      }
+    }
+
     const { error: cErr } = await supabase.from("careers").update({
       matchday: nextMatchday,
       points: career.points + pointsDelta,
