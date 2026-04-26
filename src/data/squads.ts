@@ -294,6 +294,44 @@ export const MARKET_SEED: MarketSeedPlayer[] = [
   m("Lucas Paquetá",          "MAT", 35_000_000, "Flamengo",           "Brasil"),
   m("André",                  "VOL", 18_000_000, "Fluminense",         "Brasil"),
   m("João Gomes",             "VOL", 16_000_000, "Flamengo",           "Brasil"),
+  // ===== Adições — Real Madrid =====
+  m("Thibaut Courtois",       "GOL", 15_000_000, "Real Madrid",        "Espanha"),
+  m("Dani Carvajal",          "LAT", 12_000_000, "Real Madrid",        "Espanha"),
+  m("Antonio Rüdiger",        "ZAG", 20_000_000, "Real Madrid",        "Espanha"),
+  m("Éder Militão",           "ZAG", 40_000_000, "Real Madrid",        "Espanha"),
+  m("Ferland Mendy",          "LAT", 15_000_000, "Real Madrid",        "Espanha"),
+  m("Aurélien Tchouaméni",    "VOL", 60_000_000, "Real Madrid",        "Espanha"),
+  m("Jude Bellingham",        "MCT",120_000_000, "Real Madrid",        "Espanha"),
+  m("Vinícius Júnior",        "PTA",150_000_000, "Real Madrid",        "Espanha"),
+  m("Kylian Mbappé",          "CA", 180_000_000, "Real Madrid",        "Espanha"),
+  m("Rodrygo",                "PTA",100_000_000, "Real Madrid",        "Espanha"),
+  // ===== Adições — Manchester City =====
+  m("Kyle Walker",            "LAT",  8_000_000, "Manchester City",    "Inglaterra"),
+  m("Rúben Dias",             "ZAG", 50_000_000, "Manchester City",    "Inglaterra"),
+  m("Manuel Akanji",          "ZAG", 35_000_000, "Manchester City",    "Inglaterra"),
+  m("João Cancelo",           "LAT", 40_000_000, "Manchester City",    "Inglaterra"),
+  m("Rodri",                  "VOL", 80_000_000, "Manchester City",    "Inglaterra"),
+  m("Kevin De Bruyne",        "MAT", 20_000_000, "Manchester City",    "Inglaterra"),
+  m("Phil Foden",             "MAT",100_000_000, "Manchester City",    "Inglaterra"),
+  m("Erling Haaland",         "CA", 150_000_000, "Manchester City",    "Inglaterra"),
+  m("Julián Álvarez",         "CA",  70_000_000, "Manchester City",    "Inglaterra"),
+  // ===== Adições — Liverpool =====
+  m("Ibrahima Konaté",        "ZAG", 40_000_000, "Liverpool",          "Inglaterra"),
+  m("Andy Robertson",         "LAT", 12_000_000, "Liverpool",          "Inglaterra"),
+  m("Dominik Szoboszlai",     "MCT", 45_000_000, "Liverpool",          "Inglaterra"),
+  m("Mohamed Salah",          "PTA", 40_000_000, "Liverpool",          "Inglaterra"),
+  m("Darwin Núñez",           "CA",  80_000_000, "Liverpool",          "Inglaterra"),
+  m("Cody Gakpo",             "PTA", 50_000_000, "Liverpool",          "Inglaterra"),
+  // ===== Adições — Flamengo =====
+  m("Agustín Rossi",          "GOL", 10_000_000, "Flamengo",           "Brasil"),
+  m("Léo Pereira",            "ZAG",  8_000_000, "Flamengo",           "Brasil"),
+  m("Alex Sandro",            "LAT",  6_000_000, "Flamengo",           "Brasil"),
+  m("Emerson Royal",          "LAT",  8_000_000, "Flamengo",           "Brasil"),
+  m("Gullermo Varela",        "LAT",  5_000_000, "Flamengo",           "Brasil"),
+  m("Erick Pulgar",           "VOL",  7_000_000, "Flamengo",           "Brasil"),
+  m("Jorginho",               "VOL",  4_000_000, "Flamengo",           "Brasil"),
+  // ===== Adições — Santos =====
+  m("Neymar",                 "MAT", 15_500_000, "Santos",             "Brasil"),
 ];
 
 // Sentinela: garante que a edição não quebrou a lista.
