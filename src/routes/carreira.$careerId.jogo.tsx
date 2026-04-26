@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useCareer } from "@/lib/career-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -16,8 +15,10 @@ import {
   postMatchPressIntro,
   postMatchPressQuestions,
 } from "@/lib/narrative";
+import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
+import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
 import { toast } from "sonner";
-import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus } from "lucide-react";
+import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList } from "lucide-react";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
@@ -66,10 +67,9 @@ function JogoPage() {
   const navigate = useNavigate();
 
   const [players, setPlayers] = useState<SquadRow[]>([]);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-
-  const [opponent, setOpponent] = useState(career.next_opponent ?? club.rivals[0] ?? "Adversário");
-  const [home, setHome] = useState(true);
+  const [lineup, setLineup] = useState<SavedLineup | null>(null);
+  const opponent = lineup?.opponent ?? career.next_opponent ?? "Adversário";
+  const home = lineup?.home ?? true;
   const [gf, setGf] = useState(0);
   const [ga, setGa] = useState(0);
 
@@ -101,27 +101,22 @@ function JogoPage() {
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
     })();
+    setLineup(loadLineup(careerId));
   }, [careerId, career.club_slug]);
-
-  const toggle = (id: string) => {
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 11) next.add(id);
-      else toast.error("Máximo de 11 titulares.");
-      return next;
-    });
-  };
 
   const ordered = useMemo(
     () => [...players].sort((a, b) => b.overall - a.overall),
     [players],
   );
 
-  const pickedPlayers = useMemo(
-    () => ordered.filter((p) => picked.has(p.id)),
-    [ordered, picked],
-  );
+  // Jogadores realmente disponíveis para registrar lances:
+  // titulares + reservas que entram em substituições.
+  const lineupPlayers = useMemo(() => {
+    if (!lineup) return [] as SquadRow[];
+    const subInIds = new Set(lineup.subs.map((s) => s.inId));
+    const ids = new Set<string>([...lineup.starters, ...Array.from(subInIds)]);
+    return ordered.filter((p) => ids.has(p.id));
+  }, [ordered, lineup]);
 
   const stateFor = (key: StatKey) =>
     key === "goals" ? goals : key === "assists" ? assists : key === "yellow" ? yellow : red;
@@ -140,8 +135,12 @@ function JogoPage() {
   };
 
   const submit = async () => {
-    if (picked.size !== 11) { toast.error("Escale exatamente 11 jogadores."); return; }
-    if (!opponent.trim())   { toast.error("Informe o adversário."); return; }
+    if (!lineup || lineup.starters.length !== 11) {
+      toast.error("Escale 11 titulares antes de jogar.");
+      navigate({ to: "/carreira/$careerId/escalacao", params: { careerId } });
+      return;
+    }
+    if (!opponent.trim())   { toast.error("Adversário não definido."); return; }
     if (gf < 0 || ga < 0)   { toast.error("Placar inválido."); return; }
 
     const totalGoals = totalCount(goals);
@@ -155,7 +154,10 @@ function JogoPage() {
     const pointsDelta = realResult === "V" ? 3 : realResult === "E" ? 1 : 0;
     const bonus = realResult === "V" ? victoryBonus(gf, ga) : 0;
     const nextMatchday = career.matchday + 1;
-    const windowStillOpen = nextMatchday <= career.transfer_window_closes_at;
+    const windowStillOpen = isWindowOpen(nextMatchday);
+    const wasOpen = career.transfer_window_open;
+    const derby = isDerby(club.slug, opponent.trim());
+    const dName = derbyName(club.slug, opponent.trim());
 
     const scorersStr = namesFromCount(goals, players);
     const assistsStr = namesFromCount(assists, players);
@@ -205,6 +207,7 @@ function JogoPage() {
       next_opponent: nextOpp,
       cash_eur: career.cash_eur - career.weekly_wages_eur + bonus,
       transfer_window_open: windowStillOpen,
+      transfer_window_closes_at: windowStillOpen ? career.transfer_window_closes_at : nextMatchday,
       updated_at: new Date().toISOString(),
     }).eq("id", career.id);
     if (cErr) { toast.error(cErr.message); setBusy(false); return; }
@@ -228,9 +231,23 @@ function JogoPage() {
     if (redStr)    cardsLines.push(`🟥 **Vermelhos:** ${redStr}`);
     const cardsBlock = cardsLines.length ? cardsLines.join("\n") : "🟨 **Cartões:** Partida sem cartões relevantes.";
 
-    const fan = fanReaction(gf, ga);
+    const fan = fanReaction(gf, ga, derby);
     const bonusLine = bonus > 0
       ? `\n\n💰 **Bônus financeiro:** A diretoria liberou €${bonus.toLocaleString("pt-BR")} pelo desempenho ofensivo.`
+      : "";
+    const derbyLine = derby && dName
+      ? `\n\n🔥 **${dName}:** Esse jogo entra para a história da rivalidade. ${
+          realResult === "V" ? "Torcida vai cantar a semana inteira!" :
+          realResult === "D" ? "Torcida cobra reação imediata." :
+          "Empate em clássico tem gosto de pouco para os dois lados."
+        }`
+      : "";
+    const subsLine = lineup.subs.length > 0
+      ? `\n\n🔄 **Substituições programadas:** ${lineup.subs.map((s) => {
+          const out = players.find((p) => p.id === s.outId)?.name ?? "?";
+          const inn = players.find((p) => p.id === s.inId)?.name ?? "?";
+          return `${s.minute}' ${out} ↔ ${inn}`;
+        }).join(" • ")}`
       : "";
 
     const detailedBody = [
@@ -243,14 +260,14 @@ function JogoPage() {
       cardsBlock,
       "",
       `📊 **Posição na tabela após o jogo:** ${position}º com ${career.points + pointsDelta} pontos em ${career.played + 1} jogos.`,
-      `${fan}${bonusLine}`,
+      `${fan}${bonusLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
     await supabase.from("news_feed").insert({
       career_id: career.id,
       user_id: career.user_id,
       kind: "headline",
-      title: postMatchHeadline(opponent.trim(), gf, ga, club.name),
+      title: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
       body: detailedBody,
     });
 
@@ -274,13 +291,22 @@ function JogoPage() {
       });
     }
 
-    if (career.transfer_window_open && !windowStillOpen) {
+    if (wasOpen && !windowStillOpen) {
       await supabase.from("news_feed").insert({
         career_id: career.id,
         user_id: career.user_id,
         kind: "transfer",
         title: "Janela de transferências encerrada",
-        body: `A federação encerrou oficialmente a janela de transferências. O ${club.name} terá de competir com o elenco atual até a próxima abertura. Movimentações de empréstimo e contratações ficam suspensas.`,
+        body: `A federação encerrou oficialmente a janela de transferências após a rodada ${career.matchday}. O ${club.name} terá de competir com o elenco atual até a próxima abertura (em 5 rodadas). Movimentações de empréstimo e contratações ficam suspensas.`,
+      });
+    }
+    if (!wasOpen && windowStillOpen) {
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "transfer",
+        title: "Janela de transferências reaberta",
+        body: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco antes do próximo fechamento.`,
       });
     }
 
@@ -307,6 +333,7 @@ function JogoPage() {
 
     toast.success("Resultado registrado!");
     if (bonus > 0) toast.success(`💰 Bônus por vitória: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(bonus)}`);
+    clearLineup(careerId);
     await refresh();
 
     const ctx = {
@@ -317,6 +344,7 @@ function JogoPage() {
       assists: assistsStr,
       home,
       position,
+      clubSlug: club.slug,
     };
     setPressIntro(postMatchPressIntro(ctx));
     setPressQuestions(postMatchPressQuestions(ctx));
