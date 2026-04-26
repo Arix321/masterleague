@@ -17,8 +17,10 @@ import {
 } from "@/lib/narrative";
 import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
 import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
+import { POSITION_ORDER, normalizePosition } from "@/data/squads";
 import { toast } from "sonner";
-import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList } from "lucide-react";
+import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
@@ -79,6 +81,12 @@ function JogoPage() {
   const [yellow, setYellow] = useState<Record<string, number>>({});
   const [red, setRed] = useState<Record<string, number>>({});
 
+  // Substituições feitas durante o jogo (ao vivo).
+  const [liveSubs, setLiveSubs] = useState<{ outId: string; inId: string; minute: number }[]>([]);
+  const [subOutId, setSubOutId] = useState<string>("");
+  const [subInId, setSubInId] = useState<string>("");
+  const [subMinute, setSubMinute] = useState<number>(60);
+
   const [activeStat, setActiveStat] = useState<StatKey>("goals");
   const [position, setPosition] = useState(career.league_position);
   const [busy, setBusy] = useState(false);
@@ -104,19 +112,78 @@ function JogoPage() {
     setLineup(loadLineup(careerId));
   }, [careerId, career.club_slug]);
 
+  // Ordenado por posição (do gol ao centroavante) e depois por overall desc.
   const ordered = useMemo(
-    () => [...players].sort((a, b) => b.overall - a.overall),
+    () =>
+      [...players].sort((a, b) => {
+        const pa = POSITION_ORDER[normalizePosition(a.position)] ?? 99;
+        const pb = POSITION_ORDER[normalizePosition(b.position)] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return b.overall - a.overall;
+      }),
     [players],
   );
 
   // Jogadores realmente disponíveis para registrar lances:
-  // titulares + reservas que entram em substituições.
+  // titulares + reservas que entraram em substituições durante o jogo.
   const lineupPlayers = useMemo(() => {
     if (!lineup) return [] as SquadRow[];
-    const subInIds = new Set(lineup.subs.map((s) => s.inId));
+    const subInIds = new Set(liveSubs.map((s) => s.inId));
     const ids = new Set<string>([...lineup.starters, ...Array.from(subInIds)]);
     return ordered.filter((p) => ids.has(p.id));
-  }, [ordered, lineup]);
+  }, [ordered, lineup, liveSubs]);
+
+  // Lista de quem está atualmente em campo (titulares - quem saiu + quem entrou).
+  const onFieldIds = useMemo(() => {
+    if (!lineup) return new Set<string>();
+    const ids = new Set<string>(lineup.starters);
+    for (const s of liveSubs) {
+      ids.delete(s.outId);
+      ids.add(s.inId);
+    }
+    return ids;
+  }, [lineup, liveSubs]);
+
+  // Reservas ainda disponíveis para entrar (no banco e que ainda não entraram).
+  const benchAvailable = useMemo(() => {
+    if (!lineup) return [] as SquadRow[];
+    const usedIn = new Set(liveSubs.map((s) => s.inId));
+    return ordered.filter((p) => lineup.bench.includes(p.id) && !usedIn.has(p.id));
+  }, [ordered, lineup, liveSubs]);
+
+  // Quem está em campo agora (para sair).
+  const onFieldList = useMemo(
+    () => ordered.filter((p) => onFieldIds.has(p.id)),
+    [ordered, onFieldIds],
+  );
+
+  // Pré-seleciona valores padrão dos selects de substituição.
+  useEffect(() => {
+    if (!subOutId && onFieldList.length > 0) setSubOutId(onFieldList[0].id);
+    if (!subInId && benchAvailable.length > 0) setSubInId(benchAvailable[0].id);
+  }, [onFieldList, benchAvailable, subOutId, subInId]);
+
+  const addLiveSub = () => {
+    if (!subOutId || !subInId) {
+      toast.error("Selecione quem sai e quem entra.");
+      return;
+    }
+    if (subOutId === subInId) {
+      toast.error("Jogador inválido.");
+      return;
+    }
+    const minute = Math.max(1, Math.min(120, subMinute || 60));
+    setLiveSubs((s) => [...s, { outId: subOutId, inId: subInId, minute }]);
+    // Reseta seleção
+    setSubOutId("");
+    setSubInId("");
+    setSubMinute(60);
+    toast.success("Substituição registrada.");
+  };
+
+  const removeLiveSub = (idx: number) => {
+    setLiveSubs((s) => s.filter((_, i) => i !== idx));
+  };
 
   const stateFor = (key: StatKey) =>
     key === "goals" ? goals : key === "assists" ? assists : key === "yellow" ? yellow : red;
@@ -249,6 +316,13 @@ function JogoPage() {
           return `${s.minute}' ${out} ↔ ${inn}`;
         }).join(" • ")}`
       : "";
+    const liveSubsLine = liveSubs.length > 0
+      ? `\n\n🔄 **Substituições no jogo:** ${liveSubs.map((s) => {
+          const out = players.find((p) => p.id === s.outId)?.name ?? "?";
+          const inn = players.find((p) => p.id === s.inId)?.name ?? "?";
+          return `${s.minute}' ↓ ${out} ↑ ${inn}`;
+        }).join(" • ")}`
+      : "";
 
     const detailedBody = [
       `**${club.name} ${gf} x ${ga} ${opponent.trim()}** — Rodada ${career.matchday} (${home ? "Casa" : "Fora"}).`,
@@ -260,7 +334,7 @@ function JogoPage() {
       cardsBlock,
       "",
       `📊 **Posição na tabela após o jogo:** ${position}º com ${career.points + pointsDelta} pontos em ${career.played + 1} jogos.`,
-      `${fan}${bonusLine}${subsLine}${derbyLine}`,
+      `${fan}${bonusLine}${liveSubsLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
     await supabase.from("news_feed").insert({
