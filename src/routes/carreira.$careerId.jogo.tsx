@@ -387,32 +387,104 @@ function JogoPage() {
   };
 
   const activeRec = stateFor(activeStat);
+  const derby = isDerby(club.slug, opponent);
+  const dName = derbyName(club.slug, opponent);
+
+  // Sem escalação salva: orienta o usuário a escalar primeiro.
+  if (!lineup || lineup.starters.length !== 11) {
+    return (
+      <Card className="mx-auto max-w-2xl border-border/60 bg-card/70">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" /> Escale o time antes do jogo
+          </CardTitle>
+          <CardDescription>
+            Você precisa definir os 11 titulares, o banco e (opcionalmente) as substituições antes de registrar o resultado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button asChild size="lg" className="w-full">
+            <Link to="/carreira/$careerId/escalacao" params={{ careerId }}>
+              Ir para a escalação <ChevronRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="w-full">
+            <Link to="/carreira/$careerId" params={{ careerId }}>Voltar ao hub</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="border-border/60 bg-card/70">
         <CardHeader>
-          <CardTitle>Escalação obrigatória</CardTitle>
-          <CardDescription>Selecione 11 titulares ({picked.size}/11)</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" /> Escalação confirmada
+          </CardTitle>
+          <CardDescription>
+            {lineup.starters.length} titulares • {lineup.bench.length} reservas •{" "}
+            <Link
+              to="/carreira/$careerId/escalacao"
+              params={{ careerId }}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              editar
+            </Link>
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-sm">
+            <Trophy className="h-4 w-4 text-gold" />
+            <span className="font-semibold">{club.shortName}</span>
+            <span className="text-muted-foreground">vs</span>
+            <span className="font-semibold">{opponent}</span>
+            <Badge variant="secondary" className="ml-auto text-[10px]">
+              {home ? "🏟️ Casa" : "✈️ Fora"}
+            </Badge>
+            {derby && dName && (
+              <Badge variant="destructive" className="text-[10px]"><Flame className="mr-1 h-3 w-3" />{dName}</Badge>
+            )}
+          </div>
           <div className="max-h-[480px] space-y-1 overflow-y-auto pr-1">
-            {ordered.map((p) => {
-              const checked = picked.has(p.id);
-              return (
-                <label
-                  key={p.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition ${
-                    checked ? "border-primary bg-primary/10" : "border-border/40 bg-background/30 hover:bg-background/60"
-                  } ${p.injured ? "opacity-50" : ""}`}
-                >
-                  <Checkbox checked={checked} onCheckedChange={() => !p.injured && toggle(p.id)} disabled={p.injured} />
-                  <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                  <span className="flex-1 truncate">{p.name}</span>
-                  <span className="text-sm font-bold text-primary">{p.overall}</span>
-                </label>
-              );
-            })}
+            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Titulares</p>
+            {ordered.filter((p) => lineup.starters.includes(p.id)).map((p) => (
+              <div key={p.id} className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2">
+                <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
+                <span className="flex-1 truncate">{p.name}</span>
+                <span className="text-sm font-bold text-primary">{p.overall}</span>
+              </div>
+            ))}
+            {lineup.bench.length > 0 && (
+              <>
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Banco</p>
+                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2">
+                    <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
+                    <span className="flex-1 truncate text-sm">{p.name}</span>
+                    <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
+                  </div>
+                ))}
+              </>
+            )}
+            {lineup.subs.length > 0 && (
+              <>
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Substituições planejadas</p>
+                {lineup.subs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  const inn = players.find((p) => p.id === s.inId);
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-xs">
+                      <ArrowRightLeft className="h-3 w-3 text-primary" />
+                      <span>{s.minute}'</span>
+                      <span className="font-medium text-destructive-foreground">↓ {out?.name ?? "?"}</span>
+                      <span className="font-medium text-primary">↑ {inn?.name ?? "?"}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -423,20 +495,13 @@ function JogoPage() {
           <CardDescription>Você define cada placar e cada lance.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Adversário</Label>
-            <Input value={opponent} onChange={(e) => setOpponent(e.target.value)} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={home} onCheckedChange={(v) => setHome(Boolean(v))} /> Mando de campo (jogo em casa)
-          </label>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{club.shortName}</Label>
               <Input type="number" min={0} value={gf} onChange={(e) => setGf(parseInt(e.target.value) || 0)} />
             </div>
             <div className="space-y-1.5">
-              <Label>{opponent.slice(0, 3).toUpperCase() || "ADV"}</Label>
+              <Label>{(opponent || "ADV").slice(0, 3).toUpperCase()}</Label>
               <Input type="number" min={0} value={ga} onChange={(e) => setGa(parseInt(e.target.value) || 0)} />
             </div>
           </div>
@@ -466,13 +531,13 @@ function JogoPage() {
               })}
             </div>
 
-            {pickedPlayers.length === 0 ? (
+            {lineupPlayers.length === 0 ? (
               <p className="rounded-md border border-dashed border-border/40 p-3 text-center text-xs text-muted-foreground">
-                Escale 11 jogadores ao lado para registrar lances.
+                Carregando elenco da escalação...
               </p>
             ) : (
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border/40 bg-background/20 p-2">
-                {pickedPlayers.map((p) => {
+                {lineupPlayers.map((p) => {
                   const count = activeRec[p.id] ?? 0;
                   return (
                     <div
