@@ -21,6 +21,7 @@ import { Route as CarreiraCareerIdPreparacaoRouteImport } from './routes/carreir
 import { Route as CarreiraCareerIdNoticiasRouteImport } from './routes/carreira.$careerId.noticias'
 import { Route as CarreiraCareerIdMercadoRouteImport } from './routes/carreira.$careerId.mercado'
 import { Route as CarreiraCareerIdJogoRouteImport } from './routes/carreira.$careerId.jogo'
+import { Route as CarreiraCareerIdEscalacaoRouteImport } from './routes/carreira.$careerId.escalacao'
 import { Route as CarreiraCareerIdElencoRouteImport } from './routes/carreira.$careerId.elenco'
 
 const CarreirasRoute = CarreirasRouteImport.update({
@@ -86,6 +87,12 @@ const CarreiraCareerIdJogoRoute = CarreiraCareerIdJogoRouteImport.update({
   path: '/jogo',
   getParentRoute: () => CarreiraCareerIdRoute,
 } as any)
+const CarreiraCareerIdEscalacaoRoute =
+  CarreiraCareerIdEscalacaoRouteImport.update({
+    id: '/escalacao',
+    path: '/escalacao',
+    getParentRoute: () => CarreiraCareerIdRoute,
+  } as any)
 const CarreiraCareerIdElencoRoute = CarreiraCareerIdElencoRouteImport.update({
   id: '/elenco',
   path: '/elenco',
@@ -99,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -113,6 +121,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/carreiras/nova': typeof CarreirasNovaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -129,6 +138,7 @@ export interface FileRoutesById {
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/carreira/$careerId'
     | '/carreiras/nova'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/carreiras/nova'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -175,6 +187,7 @@ export interface FileRouteTypes {
     | '/carreira/$careerId'
     | '/carreiras/nova'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -277,6 +290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarreiraCareerIdJogoRouteImport
       parentRoute: typeof CarreiraCareerIdRoute
     }
+    '/carreira/$careerId/escalacao': {
+      id: '/carreira/$careerId/escalacao'
+      path: '/escalacao'
+      fullPath: '/carreira/$careerId/escalacao'
+      preLoaderRoute: typeof CarreiraCareerIdEscalacaoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
     '/carreira/$careerId/elenco': {
       id: '/carreira/$careerId/elenco'
       path: '/elenco'
@@ -301,6 +321,7 @@ const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
 
 interface CarreiraCareerIdRouteChildren {
   CarreiraCareerIdElencoRoute: typeof CarreiraCareerIdElencoRoute
+  CarreiraCareerIdEscalacaoRoute: typeof CarreiraCareerIdEscalacaoRoute
   CarreiraCareerIdJogoRoute: typeof CarreiraCareerIdJogoRoute
   CarreiraCareerIdMercadoRoute: typeof CarreiraCareerIdMercadoRoute
   CarreiraCareerIdNoticiasRoute: typeof CarreiraCareerIdNoticiasRoute
@@ -312,6 +333,7 @@ interface CarreiraCareerIdRouteChildren {
 
 const CarreiraCareerIdRouteChildren: CarreiraCareerIdRouteChildren = {
   CarreiraCareerIdElencoRoute: CarreiraCareerIdElencoRoute,
+  CarreiraCareerIdEscalacaoRoute: CarreiraCareerIdEscalacaoRoute,
   CarreiraCareerIdJogoRoute: CarreiraCareerIdJogoRoute,
   CarreiraCareerIdMercadoRoute: CarreiraCareerIdMercadoRoute,
   CarreiraCareerIdNoticiasRoute: CarreiraCareerIdNoticiasRoute,
