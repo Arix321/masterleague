@@ -99,6 +99,66 @@ function JogoPage() {
   const [pressAnswer, setPressAnswer] = useState("");
   const [pressAnswers, setPressAnswers] = useState<{ q: string; a: string }[]>([]);
   const [pressSaving, setPressSaving] = useState(false);
+  const [pressLoading, setPressLoading] = useState(false);
+  const [pressCtx, setPressCtx] = useState<{
+    clubName: string;
+    opponent: string;
+    gf: number;
+    ga: number;
+    home: boolean;
+    position: number;
+    matchday: number;
+    derby: string | null;
+    scorers: string;
+    assists: string;
+    yellow: string;
+    red: string;
+  } | null>(null);
+  const [pressTotal, setPressTotal] = useState(4); // total alvo de perguntas
+
+  // Chama edge function pra gerar a próxima pergunta da coletiva.
+  const fetchNextAIQuestion = async (
+    previousAnswers: { q: string; a: string }[],
+    extra?: { yellow?: string; red?: string; derby?: string | null; matchday?: number },
+  ) => {
+    const baseCtx = pressCtx;
+    if (!baseCtx && !extra) return;
+    const ctx = {
+      ...(baseCtx ?? {
+        clubName: club.name,
+        opponent: opponent.trim(),
+        gf,
+        ga,
+        home,
+        position,
+        matchday: career.matchday,
+        derby: extra?.derby ?? null,
+        scorers: namesFromCount(goals, players),
+        assists: namesFromCount(assists, players),
+        yellow: extra?.yellow ?? "",
+        red: extra?.red ?? "",
+      }),
+      previousAnswers,
+    };
+    setPressLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("press-conference", {
+        body: { context: ctx, count: 1 },
+      });
+      if (error) throw error;
+      const q = (data?.questions?.[0] as string | undefined)?.trim();
+      if (q) {
+        setPressQuestions((prev) => [...prev, q]);
+      } else {
+        toast.error("Não foi possível gerar a próxima pergunta.");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro ao gerar pergunta.";
+      toast.error(msg);
+    } finally {
+      setPressLoading(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -464,15 +524,38 @@ function JogoPage() {
     setPressIndex(0);
     setPressAnswer("");
     setPressAnswers([]);
-    setPressOpen(true);
-    setBusy(false);
-    // Dispara primeira pergunta da IA
-    void fetchNextAIQuestion([], {
+    const fullCtx = {
+      clubName: club.name,
+      opponent: opponent.trim(),
+      gf,
+      ga,
+      home,
+      position,
+      matchday: career.matchday,
+      derby: dName,
+      scorers: scorersStr,
+      assists: assistsStr,
       yellow: yellowStr,
       red: redStr,
-      derby: dName,
-      matchday: career.matchday,
-    });
+    };
+    setPressCtx(fullCtx);
+    setPressTotal(4);
+    setPressOpen(true);
+    setBusy(false);
+    // Dispara primeira pergunta da IA usando o contexto recém-montado
+    setPressLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("press-conference", {
+        body: { context: { ...fullCtx, previousAnswers: [] }, count: 1 },
+      });
+      if (error) throw error;
+      const q = (data?.questions?.[0] as string | undefined)?.trim();
+      if (q) setPressQuestions([q]);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar pergunta.");
+    } finally {
+      setPressLoading(false);
+    }
   };
 
   const advancePress = async () => {
