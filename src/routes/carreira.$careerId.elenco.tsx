@@ -13,7 +13,7 @@ import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
 import { Heart, ShieldAlert, Stethoscope, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { generatePlayerStats, randomPlayerName, estimateValue } from "@/lib/players";
-import type { Position } from "@/data/squads";
+import { POSITION_ORDER, POSITION_LIST, type Position } from "@/data/squads";
 
 interface SquadRow {
   id: string;
@@ -34,8 +34,7 @@ interface SquadRow {
   technique: number;
 }
 
-const POSITION_ORDER: Record<string, number> = { GOL: 0, ZAG: 1, LAT: 2, VOL: 3, MEI: 4, ATA: 5 };
-const POSITIONS: Position[] = ["GOL", "ZAG", "LAT", "VOL", "MEI", "ATA"];
+const POSITIONS: Position[] = POSITION_LIST;
 
 export const Route = createFileRoute("/carreira/$careerId/elenco")({
   component: ElencoPage,
@@ -321,7 +320,7 @@ function CreatePlayerDialog({ onCreate }: { onCreate: (name: string, age: number
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [age, setAge] = useState(20);
-  const [position, setPosition] = useState<Position>("MEI");
+  const [position, setPosition] = useState<Position>("MCT");
   const [busy, setBusy] = useState(false);
 
   return (

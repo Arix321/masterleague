@@ -17,8 +17,10 @@ import {
 } from "@/lib/narrative";
 import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
 import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
+import { POSITION_ORDER, normalizePosition } from "@/data/squads";
 import { toast } from "sonner";
-import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList } from "lucide-react";
+import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
@@ -79,6 +81,12 @@ function JogoPage() {
   const [yellow, setYellow] = useState<Record<string, number>>({});
   const [red, setRed] = useState<Record<string, number>>({});
 
+  // Substituições feitas durante o jogo (ao vivo).
+  const [liveSubs, setLiveSubs] = useState<{ outId: string; inId: string; minute: number }[]>([]);
+  const [subOutId, setSubOutId] = useState<string>("");
+  const [subInId, setSubInId] = useState<string>("");
+  const [subMinute, setSubMinute] = useState<number>(60);
+
   const [activeStat, setActiveStat] = useState<StatKey>("goals");
   const [position, setPosition] = useState(career.league_position);
   const [busy, setBusy] = useState(false);
@@ -104,19 +112,78 @@ function JogoPage() {
     setLineup(loadLineup(careerId));
   }, [careerId, career.club_slug]);
 
+  // Ordenado por posição (do gol ao centroavante) e depois por overall desc.
   const ordered = useMemo(
-    () => [...players].sort((a, b) => b.overall - a.overall),
+    () =>
+      [...players].sort((a, b) => {
+        const pa = POSITION_ORDER[normalizePosition(a.position)] ?? 99;
+        const pb = POSITION_ORDER[normalizePosition(b.position)] ?? 99;
+        if (pa !== pb) return pa - pb;
+        return b.overall - a.overall;
+      }),
     [players],
   );
 
   // Jogadores realmente disponíveis para registrar lances:
-  // titulares + reservas que entram em substituições.
+  // titulares + reservas que entraram em substituições durante o jogo.
   const lineupPlayers = useMemo(() => {
     if (!lineup) return [] as SquadRow[];
-    const subInIds = new Set(lineup.subs.map((s) => s.inId));
+    const subInIds = new Set(liveSubs.map((s) => s.inId));
     const ids = new Set<string>([...lineup.starters, ...Array.from(subInIds)]);
     return ordered.filter((p) => ids.has(p.id));
-  }, [ordered, lineup]);
+  }, [ordered, lineup, liveSubs]);
+
+  // Lista de quem está atualmente em campo (titulares - quem saiu + quem entrou).
+  const onFieldIds = useMemo(() => {
+    if (!lineup) return new Set<string>();
+    const ids = new Set<string>(lineup.starters);
+    for (const s of liveSubs) {
+      ids.delete(s.outId);
+      ids.add(s.inId);
+    }
+    return ids;
+  }, [lineup, liveSubs]);
+
+  // Reservas ainda disponíveis para entrar (no banco e que ainda não entraram).
+  const benchAvailable = useMemo(() => {
+    if (!lineup) return [] as SquadRow[];
+    const usedIn = new Set(liveSubs.map((s) => s.inId));
+    return ordered.filter((p) => lineup.bench.includes(p.id) && !usedIn.has(p.id));
+  }, [ordered, lineup, liveSubs]);
+
+  // Quem está em campo agora (para sair).
+  const onFieldList = useMemo(
+    () => ordered.filter((p) => onFieldIds.has(p.id)),
+    [ordered, onFieldIds],
+  );
+
+  // Pré-seleciona valores padrão dos selects de substituição.
+  useEffect(() => {
+    if (!subOutId && onFieldList.length > 0) setSubOutId(onFieldList[0].id);
+    if (!subInId && benchAvailable.length > 0) setSubInId(benchAvailable[0].id);
+  }, [onFieldList, benchAvailable, subOutId, subInId]);
+
+  const addLiveSub = () => {
+    if (!subOutId || !subInId) {
+      toast.error("Selecione quem sai e quem entra.");
+      return;
+    }
+    if (subOutId === subInId) {
+      toast.error("Jogador inválido.");
+      return;
+    }
+    const minute = Math.max(1, Math.min(120, subMinute || 60));
+    setLiveSubs((s) => [...s, { outId: subOutId, inId: subInId, minute }]);
+    // Reseta seleção
+    setSubOutId("");
+    setSubInId("");
+    setSubMinute(60);
+    toast.success("Substituição registrada.");
+  };
+
+  const removeLiveSub = (idx: number) => {
+    setLiveSubs((s) => s.filter((_, i) => i !== idx));
+  };
 
   const stateFor = (key: StatKey) =>
     key === "goals" ? goals : key === "assists" ? assists : key === "yellow" ? yellow : red;
@@ -249,6 +316,13 @@ function JogoPage() {
           return `${s.minute}' ${out} ↔ ${inn}`;
         }).join(" • ")}`
       : "";
+    const liveSubsLine = liveSubs.length > 0
+      ? `\n\n🔄 **Substituições no jogo:** ${liveSubs.map((s) => {
+          const out = players.find((p) => p.id === s.outId)?.name ?? "?";
+          const inn = players.find((p) => p.id === s.inId)?.name ?? "?";
+          return `${s.minute}' ↓ ${out} ↑ ${inn}`;
+        }).join(" • ")}`
+      : "";
 
     const detailedBody = [
       `**${club.name} ${gf} x ${ga} ${opponent.trim()}** — Rodada ${career.matchday} (${home ? "Casa" : "Fora"}).`,
@@ -260,7 +334,7 @@ function JogoPage() {
       cardsBlock,
       "",
       `📊 **Posição na tabela após o jogo:** ${position}º com ${career.points + pointsDelta} pontos em ${career.played + 1} jogos.`,
-      `${fan}${bonusLine}${subsLine}${derbyLine}`,
+      `${fan}${bonusLine}${liveSubsLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
     await supabase.from("news_feed").insert({
@@ -448,38 +522,55 @@ function JogoPage() {
             )}
           </div>
           <div className="max-h-[480px] space-y-1 overflow-y-auto pr-1">
-            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Titulares</p>
-            {ordered.filter((p) => lineup.starters.includes(p.id)).map((p) => (
-              <div key={p.id} className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2">
-                <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                <span className="flex-1 truncate">{p.name}</span>
-                <span className="text-sm font-bold text-primary">{p.overall}</span>
-              </div>
-            ))}
-            {lineup.bench.length > 0 && (
+            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Em campo</p>
+            {ordered.filter((p) => onFieldIds.has(p.id)).map((p) => {
+              const camePerSub = liveSubs.some((s) => s.inId === p.id);
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 rounded-md border px-3 py-2 ${
+                    camePerSub ? "border-emerald-500/40 bg-emerald-500/10" : "border-primary/40 bg-primary/10"
+                  }`}
+                >
+                  <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(p.position)}</span>
+                  <span className="flex-1 truncate">{p.name}</span>
+                  {camePerSub && <Badge variant="outline" className="text-[9px]">Entrou</Badge>}
+                  <span className="text-sm font-bold text-primary">{p.overall}</span>
+                </div>
+              );
+            })}
+            {liveSubs.length > 0 && (
               <>
-                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Banco</p>
-                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2">
-                    <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                    <span className="flex-1 truncate text-sm">{p.name}</span>
-                    <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
-                  </div>
-                ))}
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Saíram do jogo</p>
+                {liveSubs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  if (!out) return null;
+                  return (
+                    <div key={`out-${i}`} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2 opacity-70">
+                      <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(out.position)}</span>
+                      <span className="flex-1 truncate text-sm line-through">{out.name}</span>
+                      <span className="text-[10px] text-muted-foreground">saiu aos {s.minute}'</span>
+                    </div>
+                  );
+                })}
               </>
             )}
-            {lineup.subs.length > 0 && (
+            {lineup.bench.length > 0 && (
               <>
-                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Substituições planejadas</p>
-                {lineup.subs.map((s, i) => {
-                  const out = players.find((p) => p.id === s.outId);
-                  const inn = players.find((p) => p.id === s.inId);
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Banco ({benchAvailable.length} disponíveis)
+                </p>
+                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => {
+                  const used = liveSubs.some((s) => s.inId === p.id);
                   return (
-                    <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-xs">
-                      <ArrowRightLeft className="h-3 w-3 text-primary" />
-                      <span>{s.minute}'</span>
-                      <span className="font-medium text-destructive-foreground">↓ {out?.name ?? "?"}</span>
-                      <span className="font-medium text-primary">↑ {inn?.name ?? "?"}</span>
+                    <div
+                      key={p.id}
+                      className={`flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2 ${used ? "opacity-50" : ""}`}
+                    >
+                      <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(p.position)}</span>
+                      <span className="flex-1 truncate text-sm">{p.name}</span>
+                      {used && <Badge variant="outline" className="text-[9px]">Em campo</Badge>}
+                      <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
                     </div>
                   );
                 })}
@@ -590,6 +681,94 @@ function JogoPage() {
           <div className="space-y-1.5">
             <Label>Posição na tabela após o jogo</Label>
             <Input type="number" min={1} max={20} value={position} onChange={(e) => setPosition(parseInt(e.target.value) || 1)} />
+          </div>
+
+          <div className="space-y-2 rounded-md border border-border/40 bg-background/20 p-3">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-primary" />
+              <Label className="m-0">Substituições no jogo</Label>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {liveSubs.length} feita{liveSubs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {liveSubs.length > 0 && (
+              <div className="space-y-1">
+                {liveSubs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  const inn = players.find((p) => p.id === s.inId);
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5 text-xs">
+                      <span className="font-bold text-muted-foreground">{s.minute}'</span>
+                      <span className="text-destructive-foreground">↓ {out?.name ?? "?"}</span>
+                      <span className="text-primary">↑ {inn?.name ?? "?"}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeLiveSub(i)}
+                        className="ml-auto rounded p-1 text-muted-foreground hover:bg-background/60 hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {benchAvailable.length === 0 ? (
+              <p className="rounded border border-dashed border-border/40 p-2 text-center text-[11px] text-muted-foreground">
+                Sem reservas disponíveis para substituições.
+              </p>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-[1fr,1fr,80px,auto]">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Sai</Label>
+                  <Select value={subOutId} onValueChange={setSubOutId}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {onFieldList.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {normalizePosition(p.position)} • {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Entra</Label>
+                  <Select value={subInId} onValueChange={setSubInId}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {benchAvailable.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {normalizePosition(p.position)} • {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Min.</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={subMinute}
+                    onChange={(e) => setSubMinute(parseInt(e.target.value) || 60)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button type="button" size="sm" onClick={addLiveSub} className="h-8 w-full md:w-auto">
+                    <Plus className="mr-1 h-3 w-3" /> Substituir
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              Quem entrar fica disponível para registrar gols, assistências e cartões.
+            </p>
           </div>
 
           <Button onClick={submit} disabled={busy} size="lg" className="w-full">

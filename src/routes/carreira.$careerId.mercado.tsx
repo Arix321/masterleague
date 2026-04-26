@@ -179,8 +179,11 @@ function MercadoPage() {
                 <SelectItem value="ZAG">ZAG</SelectItem>
                 <SelectItem value="LAT">LAT</SelectItem>
                 <SelectItem value="VOL">VOL</SelectItem>
-                <SelectItem value="MEI">MEI</SelectItem>
-                <SelectItem value="ATA">ATA</SelectItem>
+                <SelectItem value="MDF">MDF</SelectItem>
+                <SelectItem value="MCT">MCT</SelectItem>
+                <SelectItem value="MAT">MAT</SelectItem>
+                <SelectItem value="PTA">PTA</SelectItem>
+                <SelectItem value="CA">CA</SelectItem>
               </SelectContent>
             </Select>
           </div>
