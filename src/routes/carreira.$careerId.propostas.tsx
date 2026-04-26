@@ -233,13 +233,13 @@ function OfferCard({
           <strong>{offer.player_interest}%</strong>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={async () => { setBusy(true); await onAccept(offer); setBusy(false); }} disabled={busy || disabled}>
-            <Check className="mr-1 h-4 w-4" /> Aceitar
+          <CounterDialog offer={offer} onUpdate={onUpdate} onAccept={onAccept} disabled={disabled} />
+          <Button size="sm" variant="outline" onClick={async () => { setBusy(true); await onAccept(offer); setBusy(false); }} disabled={busy || disabled}>
+            <Check className="mr-1 h-4 w-4" /> Aceitar direto
           </Button>
-          <Button size="sm" variant="outline" onClick={async () => { setBusy(true); await onReject(offer); setBusy(false); }} disabled={busy}>
+          <Button size="sm" variant="ghost" onClick={async () => { setBusy(true); await onReject(offer); setBusy(false); }} disabled={busy}>
             <X className="mr-1 h-4 w-4" /> Recusar
           </Button>
-          <CounterDialog offer={offer} onUpdate={onUpdate} onAccept={onAccept} disabled={disabled} />
         </div>
       </CardContent>
     </Card>
