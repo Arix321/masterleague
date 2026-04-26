@@ -35,7 +35,7 @@ interface SquadRow {
 }
 
 const POSITION_ORDER: Record<string, number> = { GOL: 0, ZAG: 1, LAT: 2, VOL: 3, MEI: 4, ATA: 5 };
-const POSITIONS: Position[] = ["GOL", "ZAG", "LAT", "VOL", "MEI", "ATA"];
+const POSITIONS: Position[] = ["GOL", "ZAG", "LAT", "VOL", "MDF", "MCT", "MAT", "PTA", "CA"];
 
 export const Route = createFileRoute("/carreira/$careerId/elenco")({
   component: ElencoPage,
@@ -321,7 +321,7 @@ function CreatePlayerDialog({ onCreate }: { onCreate: (name: string, age: number
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [age, setAge] = useState(20);
-  const [position, setPosition] = useState<Position>("MEI");
+  const [position, setPosition] = useState<Position>("MCT");
   const [busy, setBusy] = useState(false);
 
   return (
