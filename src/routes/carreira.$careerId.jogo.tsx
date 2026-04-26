@@ -683,6 +683,94 @@ function JogoPage() {
             <Input type="number" min={1} max={20} value={position} onChange={(e) => setPosition(parseInt(e.target.value) || 1)} />
           </div>
 
+          <div className="space-y-2 rounded-md border border-border/40 bg-background/20 p-3">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-primary" />
+              <Label className="m-0">Substituições no jogo</Label>
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {liveSubs.length} feita{liveSubs.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {liveSubs.length > 0 && (
+              <div className="space-y-1">
+                {liveSubs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  const inn = players.find((p) => p.id === s.inId);
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded border border-border/40 bg-background/40 px-2 py-1.5 text-xs">
+                      <span className="font-bold text-muted-foreground">{s.minute}'</span>
+                      <span className="text-destructive-foreground">↓ {out?.name ?? "?"}</span>
+                      <span className="text-primary">↑ {inn?.name ?? "?"}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeLiveSub(i)}
+                        className="ml-auto rounded p-1 text-muted-foreground hover:bg-background/60 hover:text-destructive"
+                        aria-label="Remover"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {benchAvailable.length === 0 ? (
+              <p className="rounded border border-dashed border-border/40 p-2 text-center text-[11px] text-muted-foreground">
+                Sem reservas disponíveis para substituições.
+              </p>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-[1fr,1fr,80px,auto]">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Sai</Label>
+                  <Select value={subOutId} onValueChange={setSubOutId}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {onFieldList.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {normalizePosition(p.position)} • {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Entra</Label>
+                  <Select value={subInId} onValueChange={setSubInId}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {benchAvailable.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {normalizePosition(p.position)} • {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Min.</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={subMinute}
+                    onChange={(e) => setSubMinute(parseInt(e.target.value) || 60)}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button type="button" size="sm" onClick={addLiveSub} className="h-8 w-full md:w-auto">
+                    <Plus className="mr-1 h-3 w-3" /> Substituir
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              Quem entrar fica disponível para registrar gols, assistências e cartões.
+            </p>
+          </div>
+
           <Button onClick={submit} disabled={busy} size="lg" className="w-full">
             {busy ? "Registrando..." : "Confirmar resultado"} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
