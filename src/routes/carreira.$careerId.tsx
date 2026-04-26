@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/format";
 import { ArrowLeft, Home, Users, ClipboardList, Newspaper, Store, Trophy, Inbox, CalendarClock, ThermometerSun, ListChecks } from "lucide-react";
 import { toast } from "sonner";
+import { nextWindowChange, windowClosesAt } from "@/lib/season";
 
 export const Route = createFileRoute("/carreira/$careerId")({
   component: CareerLayout,
@@ -104,7 +105,11 @@ function CareerLayout() {
                 <Pill label="Pontos" value={String(career.points)} />
                 <Pill
                   label="Janela"
-                  value={career.transfer_window_open ? `Aberta até R${career.transfer_window_closes_at}` : "Fechada"}
+                  value={
+                    career.transfer_window_open
+                      ? `Aberta até R${windowClosesAt(career.matchday)}`
+                      : `Fechada • abre R${nextWindowChange(career.matchday)}`
+                  }
                   accent={career.transfer_window_open}
                 />
               </div>
