@@ -28,14 +28,18 @@ export function generatePlayerStats(age: number, position: Position) {
   );
 
   // Atributos por posição (peso)
-  const att = {
-    GOL:  { attack: 30, defense: 78, physical: 70, technique: 70 },
-    ZAG:  { attack: 45, defense: 82, physical: 80, technique: 65 },
-    LAT:  { attack: 70, defense: 75, physical: 78, technique: 70 },
-    VOL:  { attack: 60, defense: 78, physical: 78, technique: 72 },
-    MEI:  { attack: 75, defense: 60, physical: 70, technique: 82 },
-    ATA:  { attack: 85, defense: 40, physical: 75, technique: 80 },
-  }[position];
+  const ATTRS: Record<Position, { attack: number; defense: number; physical: number; technique: number }> = {
+    GOL: { attack: 30, defense: 78, physical: 70, technique: 70 },
+    ZAG: { attack: 45, defense: 82, physical: 80, technique: 65 },
+    LAT: { attack: 70, defense: 75, physical: 78, technique: 70 },
+    VOL: { attack: 60, defense: 80, physical: 80, technique: 70 },
+    MDF: { attack: 60, defense: 78, physical: 78, technique: 74 },
+    MCT: { attack: 70, defense: 68, physical: 74, technique: 80 },
+    MAT: { attack: 80, defense: 55, physical: 70, technique: 84 },
+    PTA: { attack: 84, defense: 45, physical: 75, technique: 82 },
+    CA:  { attack: 88, defense: 40, physical: 78, technique: 80 },
+  };
+  const att = ATTRS[position];
 
   const jitter = () => Math.floor(Math.random() * 9) - 4; // -4..+4
   const scale = (overall - 75) * 0.6; // ajuste por overall
