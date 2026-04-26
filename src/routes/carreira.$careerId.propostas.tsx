@@ -233,13 +233,13 @@ function OfferCard({
           <strong>{offer.player_interest}%</strong>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={async () => { setBusy(true); await onAccept(offer); setBusy(false); }} disabled={busy || disabled}>
-            <Check className="mr-1 h-4 w-4" /> Aceitar
+          <CounterDialog offer={offer} onUpdate={onUpdate} onAccept={onAccept} disabled={disabled} />
+          <Button size="sm" variant="outline" onClick={async () => { setBusy(true); await onAccept(offer); setBusy(false); }} disabled={busy || disabled}>
+            <Check className="mr-1 h-4 w-4" /> Aceitar direto
           </Button>
-          <Button size="sm" variant="outline" onClick={async () => { setBusy(true); await onReject(offer); setBusy(false); }} disabled={busy}>
+          <Button size="sm" variant="ghost" onClick={async () => { setBusy(true); await onReject(offer); setBusy(false); }} disabled={busy}>
             <X className="mr-1 h-4 w-4" /> Recusar
           </Button>
-          <CounterDialog offer={offer} onUpdate={onUpdate} onAccept={onAccept} disabled={disabled} />
         </div>
       </CardContent>
     </Card>
@@ -431,6 +431,13 @@ function initialCounter(offer: IncomingRow): CounterState {
   const askFee = Math.round(offer.fee_eur * 1.2);
   const askBonus = Math.max(offer.bonus_eur, Math.round(offer.fee_eur * 0.08));
   const askWage = Math.round(offer.wage_offered_eur * 1.15);
+  const dealLabel = offer.offer_type === "buy" ? "compra" : "empréstimo";
+  const interestLine =
+    offer.player_interest >= 80
+      ? `Estou muito animado com a chance de jogar pelo ${offer.from_club}. Quero esse acordo.`
+      : offer.player_interest >= 50
+      ? `É uma proposta interessante. Se o salário for justo, eu topo.`
+      : `Não sei se quero sair agora. Vai depender muito do salário.`;
   return {
     ourMinFee: Math.round(offer.fee_eur * 1.05), // mínimo aceitável
     ourMinWage: Math.round(offer.wage_offered_eur * 1.05),
@@ -441,7 +448,13 @@ function initialCounter(offer: IncomingRow): CounterState {
     askBonus,
     askWage,
     round: 1,
-    history: [],
+    history: [
+      {
+        from: "club",
+        text: `Boa tarde. Viemos formalizar nosso interesse em ${offer.player_name}. Nossa proposta de ${dealLabel}: ${formatEur(offer.fee_eur)}${offer.bonus_eur ? ` + ${formatEur(offer.bonus_eur)} em bônus` : ""}, salário de ${formatEur(offer.wage_offered_eur)}/sem.`,
+      },
+      { from: "player", text: interestLine },
+    ],
     closed: false,
     rejected: false,
   };
