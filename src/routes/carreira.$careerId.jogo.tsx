@@ -560,15 +560,46 @@ function JogoPage() {
 
   const advancePress = async () => {
     const currentQ = pressQuestions[pressIndex];
+    if (!currentQ) return;
     const trimmed = pressAnswer.trim();
     if (!trimmed) { toast.error("Responda à pergunta antes de continuar."); return; }
     const updated = [...pressAnswers, { q: currentQ, a: trimmed }];
     setPressAnswers(updated);
     setPressAnswer("");
 
-    if (pressIndex < pressQuestions.length - 1) {
-      setPressIndex(pressIndex + 1);
-      return;
+    // Ainda não atingiu o total alvo de perguntas: pede próxima pergunta à IA
+    // levando em conta as respostas anteriores (perguntas dinâmicas e contextuais).
+    if (updated.length < pressTotal) {
+      setPressLoading(true);
+      try {
+        const ctxBase = pressCtx ?? {
+          clubName: club.name,
+          opponent: opponent.trim(),
+          gf, ga, home, position,
+          matchday: career.matchday,
+          derby: dName,
+          scorers: namesFromCount(goals, players),
+          assists: namesFromCount(assists, players),
+          yellow: namesFromCount(yellow, players),
+          red: namesFromCount(red, players),
+        };
+        const { data, error } = await supabase.functions.invoke("press-conference", {
+          body: { context: { ...ctxBase, previousAnswers: updated }, count: 1 },
+        });
+        if (error) throw error;
+        const q = (data?.questions?.[0] as string | undefined)?.trim();
+        if (q) {
+          setPressQuestions((prev) => [...prev, q]);
+          setPressIndex(pressIndex + 1);
+          setPressLoading(false);
+          return;
+        }
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : "Erro ao gerar próxima pergunta.");
+        setPressLoading(false);
+        return;
+      }
+      setPressLoading(false);
     }
 
     setPressSaving(true);
