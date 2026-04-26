@@ -6,8 +6,9 @@ import { CLUBS, type ClubSlug } from "@/data/clubs";
 import { CareerContext, type CareerData } from "@/lib/career-context";
 import { Button } from "@/components/ui/button";
 import { formatEur } from "@/lib/format";
-import { ArrowLeft, Home, Users, ClipboardList, Newspaper, Store, Trophy, Inbox, CalendarClock } from "lucide-react";
+import { ArrowLeft, Home, Users, ClipboardList, Newspaper, Store, Trophy, Inbox, CalendarClock, ThermometerSun, ListChecks } from "lucide-react";
 import { toast } from "sonner";
+import { nextWindowChange, windowClosesAt } from "@/lib/season";
 
 export const Route = createFileRoute("/carreira/$careerId")({
   component: CareerLayout,
@@ -51,14 +52,25 @@ function CareerLayout() {
   const club = CLUBS[career.club_slug as ClubSlug];
   const isPreseason = location.pathname.endsWith("/preparacao");
   const tabs: Array<{
-    to: "/carreira/$careerId" | "/carreira/$careerId/elenco" | "/carreira/$careerId/jogo" | "/carreira/$careerId/mercado" | "/carreira/$careerId/propostas" | "/carreira/$careerId/tabela" | "/carreira/$careerId/noticias";
+    to:
+      | "/carreira/$careerId"
+      | "/carreira/$careerId/elenco"
+      | "/carreira/$careerId/escalacao"
+      | "/carreira/$careerId/jogo"
+      | "/carreira/$careerId/mercado"
+      | "/carreira/$careerId/propostas"
+      | "/carreira/$careerId/tabela"
+      | "/carreira/$careerId/clima"
+      | "/carreira/$careerId/noticias";
     label: string;
     icon: typeof Home;
     exact?: boolean;
   }> = [
     { to: "/carreira/$careerId", label: "Hub", icon: Home, exact: true },
     { to: "/carreira/$careerId/elenco", label: "Elenco", icon: Users },
+    { to: "/carreira/$careerId/escalacao", label: "Escalação", icon: ListChecks },
     { to: "/carreira/$careerId/jogo", label: "Jogo", icon: ClipboardList },
+    { to: "/carreira/$careerId/clima", label: "Clima", icon: ThermometerSun },
     { to: "/carreira/$careerId/mercado", label: "Mercado", icon: Store },
     { to: "/carreira/$careerId/propostas", label: "Propostas", icon: Inbox },
     { to: "/carreira/$careerId/tabela", label: "Tabela", icon: Trophy },
@@ -93,7 +105,11 @@ function CareerLayout() {
                 <Pill label="Pontos" value={String(career.points)} />
                 <Pill
                   label="Janela"
-                  value={career.transfer_window_open ? `Aberta até R${career.transfer_window_closes_at}` : "Fechada"}
+                  value={
+                    career.transfer_window_open
+                      ? `Aberta até R${windowClosesAt(career.matchday)}`
+                      : `Fechada • abre R${nextWindowChange(career.matchday)}`
+                  }
                   accent={career.transfer_window_open}
                 />
               </div>

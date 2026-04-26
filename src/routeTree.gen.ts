@@ -21,7 +21,9 @@ import { Route as CarreiraCareerIdPreparacaoRouteImport } from './routes/carreir
 import { Route as CarreiraCareerIdNoticiasRouteImport } from './routes/carreira.$careerId.noticias'
 import { Route as CarreiraCareerIdMercadoRouteImport } from './routes/carreira.$careerId.mercado'
 import { Route as CarreiraCareerIdJogoRouteImport } from './routes/carreira.$careerId.jogo'
+import { Route as CarreiraCareerIdEscalacaoRouteImport } from './routes/carreira.$careerId.escalacao'
 import { Route as CarreiraCareerIdElencoRouteImport } from './routes/carreira.$careerId.elenco'
+import { Route as CarreiraCareerIdClimaRouteImport } from './routes/carreira.$careerId.clima'
 
 const CarreirasRoute = CarreirasRouteImport.update({
   id: '/carreiras',
@@ -86,9 +88,20 @@ const CarreiraCareerIdJogoRoute = CarreiraCareerIdJogoRouteImport.update({
   path: '/jogo',
   getParentRoute: () => CarreiraCareerIdRoute,
 } as any)
+const CarreiraCareerIdEscalacaoRoute =
+  CarreiraCareerIdEscalacaoRouteImport.update({
+    id: '/escalacao',
+    path: '/escalacao',
+    getParentRoute: () => CarreiraCareerIdRoute,
+  } as any)
 const CarreiraCareerIdElencoRoute = CarreiraCareerIdElencoRouteImport.update({
   id: '/elenco',
   path: '/elenco',
+  getParentRoute: () => CarreiraCareerIdRoute,
+} as any)
+const CarreiraCareerIdClimaRoute = CarreiraCareerIdClimaRouteImport.update({
+  id: '/clima',
+  path: '/clima',
   getParentRoute: () => CarreiraCareerIdRoute,
 } as any)
 
@@ -98,7 +111,9 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/clima': typeof CarreiraCareerIdClimaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -112,7 +127,9 @@ export interface FileRoutesByTo {
   '/carreiras': typeof CarreirasRouteWithChildren
   '/auth/callback': typeof AuthCallbackRoute
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/clima': typeof CarreiraCareerIdClimaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -128,7 +145,9 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/carreira/$careerId': typeof CarreiraCareerIdRouteWithChildren
   '/carreiras/nova': typeof CarreirasNovaRoute
+  '/carreira/$careerId/clima': typeof CarreiraCareerIdClimaRoute
   '/carreira/$careerId/elenco': typeof CarreiraCareerIdElencoRoute
+  '/carreira/$careerId/escalacao': typeof CarreiraCareerIdEscalacaoRoute
   '/carreira/$careerId/jogo': typeof CarreiraCareerIdJogoRoute
   '/carreira/$careerId/mercado': typeof CarreiraCareerIdMercadoRoute
   '/carreira/$careerId/noticias': typeof CarreiraCareerIdNoticiasRoute
@@ -145,7 +164,9 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/carreira/$careerId'
     | '/carreiras/nova'
+    | '/carreira/$careerId/clima'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -159,7 +180,9 @@ export interface FileRouteTypes {
     | '/carreiras'
     | '/auth/callback'
     | '/carreiras/nova'
+    | '/carreira/$careerId/clima'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -174,7 +197,9 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/carreira/$careerId'
     | '/carreiras/nova'
+    | '/carreira/$careerId/clima'
     | '/carreira/$careerId/elenco'
+    | '/carreira/$careerId/escalacao'
     | '/carreira/$careerId/jogo'
     | '/carreira/$careerId/mercado'
     | '/carreira/$careerId/noticias'
@@ -277,11 +302,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarreiraCareerIdJogoRouteImport
       parentRoute: typeof CarreiraCareerIdRoute
     }
+    '/carreira/$careerId/escalacao': {
+      id: '/carreira/$careerId/escalacao'
+      path: '/escalacao'
+      fullPath: '/carreira/$careerId/escalacao'
+      preLoaderRoute: typeof CarreiraCareerIdEscalacaoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
     '/carreira/$careerId/elenco': {
       id: '/carreira/$careerId/elenco'
       path: '/elenco'
       fullPath: '/carreira/$careerId/elenco'
       preLoaderRoute: typeof CarreiraCareerIdElencoRouteImport
+      parentRoute: typeof CarreiraCareerIdRoute
+    }
+    '/carreira/$careerId/clima': {
+      id: '/carreira/$careerId/clima'
+      path: '/clima'
+      fullPath: '/carreira/$careerId/clima'
+      preLoaderRoute: typeof CarreiraCareerIdClimaRouteImport
       parentRoute: typeof CarreiraCareerIdRoute
     }
   }
@@ -300,7 +339,9 @@ const CarreirasRouteWithChildren = CarreirasRoute._addFileChildren(
 )
 
 interface CarreiraCareerIdRouteChildren {
+  CarreiraCareerIdClimaRoute: typeof CarreiraCareerIdClimaRoute
   CarreiraCareerIdElencoRoute: typeof CarreiraCareerIdElencoRoute
+  CarreiraCareerIdEscalacaoRoute: typeof CarreiraCareerIdEscalacaoRoute
   CarreiraCareerIdJogoRoute: typeof CarreiraCareerIdJogoRoute
   CarreiraCareerIdMercadoRoute: typeof CarreiraCareerIdMercadoRoute
   CarreiraCareerIdNoticiasRoute: typeof CarreiraCareerIdNoticiasRoute
@@ -311,7 +352,9 @@ interface CarreiraCareerIdRouteChildren {
 }
 
 const CarreiraCareerIdRouteChildren: CarreiraCareerIdRouteChildren = {
+  CarreiraCareerIdClimaRoute: CarreiraCareerIdClimaRoute,
   CarreiraCareerIdElencoRoute: CarreiraCareerIdElencoRoute,
+  CarreiraCareerIdEscalacaoRoute: CarreiraCareerIdEscalacaoRoute,
   CarreiraCareerIdJogoRoute: CarreiraCareerIdJogoRoute,
   CarreiraCareerIdMercadoRoute: CarreiraCareerIdMercadoRoute,
   CarreiraCareerIdNoticiasRoute: CarreiraCareerIdNoticiasRoute,

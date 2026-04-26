@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CLUBS, type ClubSlug } from "@/data/clubs";
 import { SQUADS, MARKET_SEED } from "@/data/squads";
 import { generatePlayerStats } from "@/lib/players";
+import { isWindowOpen, windowClosesAt } from "@/lib/season";
 
 export interface NewCareerInput {
   managerName: string;
@@ -25,6 +26,8 @@ export async function createCareer(input: NewCareerInput) {
       cash_eur: club.budgetEur,
       weekly_wages_eur: weekly,
       next_opponent: club.rivals[0] ?? "Adversário",
+      transfer_window_open: isWindowOpen(1),
+      transfer_window_closes_at: windowClosesAt(1),
     })
     .select()
     .single();

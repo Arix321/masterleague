@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useCareer } from "@/lib/career-context";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -16,8 +15,10 @@ import {
   postMatchPressIntro,
   postMatchPressQuestions,
 } from "@/lib/narrative";
+import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
+import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
 import { toast } from "sonner";
-import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus } from "lucide-react";
+import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList } from "lucide-react";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
 
 interface SquadRow {
@@ -66,10 +67,9 @@ function JogoPage() {
   const navigate = useNavigate();
 
   const [players, setPlayers] = useState<SquadRow[]>([]);
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-
-  const [opponent, setOpponent] = useState(career.next_opponent ?? club.rivals[0] ?? "Adversário");
-  const [home, setHome] = useState(true);
+  const [lineup, setLineup] = useState<SavedLineup | null>(null);
+  const opponent = lineup?.opponent ?? career.next_opponent ?? "Adversário";
+  const home = lineup?.home ?? true;
   const [gf, setGf] = useState(0);
   const [ga, setGa] = useState(0);
 
@@ -101,27 +101,22 @@ function JogoPage() {
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
     })();
+    setLineup(loadLineup(careerId));
   }, [careerId, career.club_slug]);
-
-  const toggle = (id: string) => {
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 11) next.add(id);
-      else toast.error("Máximo de 11 titulares.");
-      return next;
-    });
-  };
 
   const ordered = useMemo(
     () => [...players].sort((a, b) => b.overall - a.overall),
     [players],
   );
 
-  const pickedPlayers = useMemo(
-    () => ordered.filter((p) => picked.has(p.id)),
-    [ordered, picked],
-  );
+  // Jogadores realmente disponíveis para registrar lances:
+  // titulares + reservas que entram em substituições.
+  const lineupPlayers = useMemo(() => {
+    if (!lineup) return [] as SquadRow[];
+    const subInIds = new Set(lineup.subs.map((s) => s.inId));
+    const ids = new Set<string>([...lineup.starters, ...Array.from(subInIds)]);
+    return ordered.filter((p) => ids.has(p.id));
+  }, [ordered, lineup]);
 
   const stateFor = (key: StatKey) =>
     key === "goals" ? goals : key === "assists" ? assists : key === "yellow" ? yellow : red;
@@ -140,8 +135,12 @@ function JogoPage() {
   };
 
   const submit = async () => {
-    if (picked.size !== 11) { toast.error("Escale exatamente 11 jogadores."); return; }
-    if (!opponent.trim())   { toast.error("Informe o adversário."); return; }
+    if (!lineup || lineup.starters.length !== 11) {
+      toast.error("Escale 11 titulares antes de jogar.");
+      navigate({ to: "/carreira/$careerId/escalacao", params: { careerId } });
+      return;
+    }
+    if (!opponent.trim())   { toast.error("Adversário não definido."); return; }
     if (gf < 0 || ga < 0)   { toast.error("Placar inválido."); return; }
 
     const totalGoals = totalCount(goals);
@@ -155,7 +154,10 @@ function JogoPage() {
     const pointsDelta = realResult === "V" ? 3 : realResult === "E" ? 1 : 0;
     const bonus = realResult === "V" ? victoryBonus(gf, ga) : 0;
     const nextMatchday = career.matchday + 1;
-    const windowStillOpen = nextMatchday <= career.transfer_window_closes_at;
+    const windowStillOpen = isWindowOpen(nextMatchday);
+    const wasOpen = career.transfer_window_open;
+    const derby = isDerby(club.slug, opponent.trim());
+    const dName = derbyName(club.slug, opponent.trim());
 
     const scorersStr = namesFromCount(goals, players);
     const assistsStr = namesFromCount(assists, players);
@@ -205,6 +207,7 @@ function JogoPage() {
       next_opponent: nextOpp,
       cash_eur: career.cash_eur - career.weekly_wages_eur + bonus,
       transfer_window_open: windowStillOpen,
+      transfer_window_closes_at: windowStillOpen ? career.transfer_window_closes_at : nextMatchday,
       updated_at: new Date().toISOString(),
     }).eq("id", career.id);
     if (cErr) { toast.error(cErr.message); setBusy(false); return; }
@@ -228,9 +231,23 @@ function JogoPage() {
     if (redStr)    cardsLines.push(`🟥 **Vermelhos:** ${redStr}`);
     const cardsBlock = cardsLines.length ? cardsLines.join("\n") : "🟨 **Cartões:** Partida sem cartões relevantes.";
 
-    const fan = fanReaction(gf, ga);
+    const fan = fanReaction(gf, ga, derby);
     const bonusLine = bonus > 0
       ? `\n\n💰 **Bônus financeiro:** A diretoria liberou €${bonus.toLocaleString("pt-BR")} pelo desempenho ofensivo.`
+      : "";
+    const derbyLine = derby && dName
+      ? `\n\n🔥 **${dName}:** Esse jogo entra para a história da rivalidade. ${
+          realResult === "V" ? "Torcida vai cantar a semana inteira!" :
+          realResult === "D" ? "Torcida cobra reação imediata." :
+          "Empate em clássico tem gosto de pouco para os dois lados."
+        }`
+      : "";
+    const subsLine = lineup.subs.length > 0
+      ? `\n\n🔄 **Substituições programadas:** ${lineup.subs.map((s) => {
+          const out = players.find((p) => p.id === s.outId)?.name ?? "?";
+          const inn = players.find((p) => p.id === s.inId)?.name ?? "?";
+          return `${s.minute}' ${out} ↔ ${inn}`;
+        }).join(" • ")}`
       : "";
 
     const detailedBody = [
@@ -243,14 +260,14 @@ function JogoPage() {
       cardsBlock,
       "",
       `📊 **Posição na tabela após o jogo:** ${position}º com ${career.points + pointsDelta} pontos em ${career.played + 1} jogos.`,
-      `${fan}${bonusLine}`,
+      `${fan}${bonusLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
     await supabase.from("news_feed").insert({
       career_id: career.id,
       user_id: career.user_id,
       kind: "headline",
-      title: postMatchHeadline(opponent.trim(), gf, ga, club.name),
+      title: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
       body: detailedBody,
     });
 
@@ -274,13 +291,22 @@ function JogoPage() {
       });
     }
 
-    if (career.transfer_window_open && !windowStillOpen) {
+    if (wasOpen && !windowStillOpen) {
       await supabase.from("news_feed").insert({
         career_id: career.id,
         user_id: career.user_id,
         kind: "transfer",
         title: "Janela de transferências encerrada",
-        body: `A federação encerrou oficialmente a janela de transferências. O ${club.name} terá de competir com o elenco atual até a próxima abertura. Movimentações de empréstimo e contratações ficam suspensas.`,
+        body: `A federação encerrou oficialmente a janela de transferências após a rodada ${career.matchday}. O ${club.name} terá de competir com o elenco atual até a próxima abertura (em 5 rodadas). Movimentações de empréstimo e contratações ficam suspensas.`,
+      });
+    }
+    if (!wasOpen && windowStillOpen) {
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "transfer",
+        title: "Janela de transferências reaberta",
+        body: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco antes do próximo fechamento.`,
       });
     }
 
@@ -307,6 +333,7 @@ function JogoPage() {
 
     toast.success("Resultado registrado!");
     if (bonus > 0) toast.success(`💰 Bônus por vitória: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR" }).format(bonus)}`);
+    clearLineup(careerId);
     await refresh();
 
     const ctx = {
@@ -317,6 +344,7 @@ function JogoPage() {
       assists: assistsStr,
       home,
       position,
+      clubSlug: club.slug,
     };
     setPressIntro(postMatchPressIntro(ctx));
     setPressQuestions(postMatchPressQuestions(ctx));
@@ -359,32 +387,104 @@ function JogoPage() {
   };
 
   const activeRec = stateFor(activeStat);
+  const derby = isDerby(club.slug, opponent);
+  const dName = derbyName(club.slug, opponent);
+
+  // Sem escalação salva: orienta o usuário a escalar primeiro.
+  if (!lineup || lineup.starters.length !== 11) {
+    return (
+      <Card className="mx-auto max-w-2xl border-border/60 bg-card/70">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" /> Escale o time antes do jogo
+          </CardTitle>
+          <CardDescription>
+            Você precisa definir os 11 titulares, o banco e (opcionalmente) as substituições antes de registrar o resultado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button asChild size="lg" className="w-full">
+            <Link to="/carreira/$careerId/escalacao" params={{ careerId }}>
+              Ir para a escalação <ChevronRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="w-full">
+            <Link to="/carreira/$careerId" params={{ careerId }}>Voltar ao hub</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card className="border-border/60 bg-card/70">
         <CardHeader>
-          <CardTitle>Escalação obrigatória</CardTitle>
-          <CardDescription>Selecione 11 titulares ({picked.size}/11)</CardDescription>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" /> Escalação confirmada
+          </CardTitle>
+          <CardDescription>
+            {lineup.starters.length} titulares • {lineup.bench.length} reservas •{" "}
+            <Link
+              to="/carreira/$careerId/escalacao"
+              params={{ careerId }}
+              className="text-primary underline-offset-2 hover:underline"
+            >
+              editar
+            </Link>
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-sm">
+            <Trophy className="h-4 w-4 text-gold" />
+            <span className="font-semibold">{club.shortName}</span>
+            <span className="text-muted-foreground">vs</span>
+            <span className="font-semibold">{opponent}</span>
+            <Badge variant="secondary" className="ml-auto text-[10px]">
+              {home ? "🏟️ Casa" : "✈️ Fora"}
+            </Badge>
+            {derby && dName && (
+              <Badge variant="destructive" className="text-[10px]"><Flame className="mr-1 h-3 w-3" />{dName}</Badge>
+            )}
+          </div>
           <div className="max-h-[480px] space-y-1 overflow-y-auto pr-1">
-            {ordered.map((p) => {
-              const checked = picked.has(p.id);
-              return (
-                <label
-                  key={p.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition ${
-                    checked ? "border-primary bg-primary/10" : "border-border/40 bg-background/30 hover:bg-background/60"
-                  } ${p.injured ? "opacity-50" : ""}`}
-                >
-                  <Checkbox checked={checked} onCheckedChange={() => !p.injured && toggle(p.id)} disabled={p.injured} />
-                  <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                  <span className="flex-1 truncate">{p.name}</span>
-                  <span className="text-sm font-bold text-primary">{p.overall}</span>
-                </label>
-              );
-            })}
+            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Titulares</p>
+            {ordered.filter((p) => lineup.starters.includes(p.id)).map((p) => (
+              <div key={p.id} className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2">
+                <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
+                <span className="flex-1 truncate">{p.name}</span>
+                <span className="text-sm font-bold text-primary">{p.overall}</span>
+              </div>
+            ))}
+            {lineup.bench.length > 0 && (
+              <>
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Banco</p>
+                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2">
+                    <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
+                    <span className="flex-1 truncate text-sm">{p.name}</span>
+                    <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
+                  </div>
+                ))}
+              </>
+            )}
+            {lineup.subs.length > 0 && (
+              <>
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Substituições planejadas</p>
+                {lineup.subs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  const inn = players.find((p) => p.id === s.inId);
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-xs">
+                      <ArrowRightLeft className="h-3 w-3 text-primary" />
+                      <span>{s.minute}'</span>
+                      <span className="font-medium text-destructive-foreground">↓ {out?.name ?? "?"}</span>
+                      <span className="font-medium text-primary">↑ {inn?.name ?? "?"}</span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -395,20 +495,13 @@ function JogoPage() {
           <CardDescription>Você define cada placar e cada lance.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>Adversário</Label>
-            <Input value={opponent} onChange={(e) => setOpponent(e.target.value)} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={home} onCheckedChange={(v) => setHome(Boolean(v))} /> Mando de campo (jogo em casa)
-          </label>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{club.shortName}</Label>
               <Input type="number" min={0} value={gf} onChange={(e) => setGf(parseInt(e.target.value) || 0)} />
             </div>
             <div className="space-y-1.5">
-              <Label>{opponent.slice(0, 3).toUpperCase() || "ADV"}</Label>
+              <Label>{(opponent || "ADV").slice(0, 3).toUpperCase()}</Label>
               <Input type="number" min={0} value={ga} onChange={(e) => setGa(parseInt(e.target.value) || 0)} />
             </div>
           </div>
@@ -438,13 +531,13 @@ function JogoPage() {
               })}
             </div>
 
-            {pickedPlayers.length === 0 ? (
+            {lineupPlayers.length === 0 ? (
               <p className="rounded-md border border-dashed border-border/40 p-3 text-center text-xs text-muted-foreground">
-                Escale 11 jogadores ao lado para registrar lances.
+                Carregando elenco da escalação...
               </p>
             ) : (
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-border/40 bg-background/20 p-2">
-                {pickedPlayers.map((p) => {
+                {lineupPlayers.map((p) => {
                   const count = activeRec[p.id] ?? 0;
                   return (
                     <div
