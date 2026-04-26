@@ -305,9 +305,13 @@ export type Database = {
           goals: number
           id: string
           injured: boolean
+          loan_returns_at_matchday: number | null
+          loan_to_club: string | null
           market_value_eur: number
           morale: number
           name: string
+          on_loan: boolean
+          original_wage_eur: number
           overall: number
           physical: number
           position: string
@@ -328,9 +332,13 @@ export type Database = {
           goals?: number
           id?: string
           injured?: boolean
+          loan_returns_at_matchday?: number | null
+          loan_to_club?: string | null
           market_value_eur?: number
           morale?: number
           name: string
+          on_loan?: boolean
+          original_wage_eur?: number
           overall?: number
           physical?: number
           position?: string
@@ -351,9 +359,13 @@ export type Database = {
           goals?: number
           id?: string
           injured?: boolean
+          loan_returns_at_matchday?: number | null
+          loan_to_club?: string | null
           market_value_eur?: number
           morale?: number
           name?: string
+          on_loan?: boolean
+          original_wage_eur?: number
           overall?: number
           physical?: number
           position?: string
@@ -380,16 +392,23 @@ export type Database = {
           club_response: string | null
           contract_years: number
           created_at: string
+          deal_type: string
           direction: string
           fee_eur: number
           id: string
+          loan_buy_option_eur: number
+          loan_months: number
+          loan_obligation: boolean
+          negotiation_round: number
           other_club: string
           player_id: string | null
           player_name: string
           player_response: string | null
+          rounds_used: number
           status: string
           user_id: string
           wage_eur: number
+          wage_share_pct: number
         }
         Insert: {
           bonus_eur?: number
@@ -397,16 +416,23 @@ export type Database = {
           club_response?: string | null
           contract_years?: number
           created_at?: string
+          deal_type?: string
           direction: string
           fee_eur?: number
           id?: string
+          loan_buy_option_eur?: number
+          loan_months?: number
+          loan_obligation?: boolean
+          negotiation_round?: number
           other_club: string
           player_id?: string | null
           player_name: string
           player_response?: string | null
+          rounds_used?: number
           status?: string
           user_id: string
           wage_eur?: number
+          wage_share_pct?: number
         }
         Update: {
           bonus_eur?: number
@@ -414,16 +440,23 @@ export type Database = {
           club_response?: string | null
           contract_years?: number
           created_at?: string
+          deal_type?: string
           direction?: string
           fee_eur?: number
           id?: string
+          loan_buy_option_eur?: number
+          loan_months?: number
+          loan_obligation?: boolean
+          negotiation_round?: number
           other_club?: string
           player_id?: string | null
           player_name?: string
           player_response?: string | null
+          rounds_used?: number
           status?: string
           user_id?: string
           wage_eur?: number
+          wage_share_pct?: number
         }
         Relationships: [
           {

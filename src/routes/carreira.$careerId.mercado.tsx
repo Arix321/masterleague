@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { Handshake, Store, Lock, Search, X } from "lucide-react";
+import { Handshake, Store, Lock, Search, X, ShoppingCart, Repeat, Gavel, AlertTriangle } from "lucide-react";
 import React from "react";
 import { nextWindowChange, windowClosesAt } from "@/lib/season";
 
@@ -25,6 +25,30 @@ interface MarketRow {
   region: string;
   current_club: string;
 }
+
+type DealType = "buy" | "loan";
+type LoanType = "simple" | "option" | "obligation";
+
+interface Negotiation {
+  player: MarketRow;
+  dealType: DealType;
+  loanType: LoanType;
+  loanMonths: 3 | 6 | 12;
+  fee: number;
+  wage: number;
+  bonus: number;
+  years: number;
+  wageSharePct: number; // % salário pago pelo MEU clube no empréstimo
+  buyOption: number;
+  round: number;
+  history: Array<{ from: "you" | "club" | "player"; text: string }>;
+  // Demandas do clube/jogador (atualizadas a cada rodada)
+  clubAsk: number; // valor que o clube vendedor quer agora
+  playerAsk: number; // salário que o jogador quer agora
+}
+
+const MONTHS_TO_MATCHDAYS = 4; // 1 mês ≈ 4 rodadas
+const MAX_NEGOTIATION_ROUNDS = 4;
 
 export const Route = createFileRoute("/carreira/$careerId/mercado")({
   component: MercadoPage,
@@ -72,62 +96,99 @@ function MercadoPage() {
     );
   }, [market, search, posFilter, clubFilter, valueOrder]);
 
-  const negotiate = async (player: MarketRow, fee: number, wage: number, years: number) => {
-    if (!career.transfer_window_open) {
-      toast.error("Janela de transferências fechada.");
-      return;
+  // Conclui contratação definitiva (compra OU empréstimo aceito por ambas as partes)
+  const closeDeal = async (n: Negotiation) => {
+    if (n.dealType === "buy") {
+      if (n.fee > career.cash_eur) {
+        toast.error("Caixa insuficiente para concretizar a compra.");
+        return;
+      }
+      await supabase.from("squad_players").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        club_slug: career.club_slug,
+        name: n.player.name,
+        position: n.player.position,
+        overall: n.player.overall,
+        weekly_wage_eur: n.wage,
+        original_wage_eur: n.wage,
+        market_value_eur: n.player.market_value_eur,
+      });
+      await supabase.from("market_players").delete().eq("id", n.player.id);
+      await supabase.from("careers").update({
+        cash_eur: career.cash_eur - n.fee,
+        weekly_wages_eur: career.weekly_wages_eur + n.wage,
+        updated_at: new Date().toISOString(),
+      }).eq("id", career.id);
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "transfer",
+        title: `${club.name} acerta a contratação de ${n.player.name}`,
+        body: `Vindo do ${n.player.current_club || n.player.region}. Valor: ${formatEur(n.fee)}${n.bonus ? ` (+${formatEur(n.bonus)} em bônus)` : ""} • Salário: ${formatEur(n.wage)}/sem • Contrato: ${n.years} anos.`,
+      });
+      toast.success(`${n.player.name} é seu novo reforço!`);
+    } else {
+      // Empréstimo
+      const months = n.loanMonths;
+      const returnsAt = career.matchday + months * MONTHS_TO_MATCHDAYS;
+      const myWageShare = Math.round((n.wage * n.wageSharePct) / 100);
+      const loanFee = n.fee; // taxa de empréstimo
+      if (loanFee > career.cash_eur) {
+        toast.error("Caixa insuficiente para a taxa de empréstimo.");
+        return;
+      }
+      const loanLabel = n.loanType === "obligation" ? "com obrigação de compra" : n.loanType === "option" ? "com opção de compra" : "simples";
+      await supabase.from("squad_players").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        club_slug: career.club_slug,
+        name: n.player.name,
+        position: n.player.position,
+        overall: n.player.overall,
+        weekly_wage_eur: myWageShare,
+        original_wage_eur: myWageShare,
+        market_value_eur: n.player.market_value_eur,
+      });
+      await supabase.from("market_players").delete().eq("id", n.player.id);
+      await supabase.from("careers").update({
+        cash_eur: career.cash_eur - loanFee,
+        weekly_wages_eur: career.weekly_wages_eur + myWageShare,
+        updated_at: new Date().toISOString(),
+      }).eq("id", career.id);
+      await supabase.from("news_feed").insert({
+        career_id: career.id,
+        user_id: career.user_id,
+        kind: "transfer",
+        title: `${club.name} acerta empréstimo de ${n.player.name}`,
+        body: `Empréstimo ${loanLabel} por ${months} meses${n.loanType !== "simple" ? `, com opção/obrigação de compra de ${formatEur(n.buyOption)}` : ""}. Taxa: ${formatEur(loanFee)} • Salário pago pelo ${club.name}: ${n.wageSharePct}% (${formatEur(myWageShare)}/sem). Retorno previsto na rodada ${returnsAt}.`,
+      });
+      toast.success(`${n.player.name} chega por empréstimo!`);
     }
-    if (fee > career.cash_eur) {
-      toast.error("Caixa insuficiente.");
-      return;
-    }
-    const clubAccepts = fee >= player.market_value_eur * 0.9;
-    const playerAccepts = wage >= player.expected_wage_eur * 0.95;
 
+    // Registra no histórico de transferências
     await supabase.from("transfer_offers").insert({
       career_id: career.id,
       user_id: career.user_id,
       direction: "in",
-      player_name: player.name,
-      other_club: player.current_club || player.region,
-      fee_eur: fee,
-      wage_eur: wage,
-      contract_years: years,
-      status: clubAccepts && playerAccepts ? "accepted" : "rejected",
-      club_response: clubAccepts ? "Aceita a proposta." : "Recusa: valor abaixo do esperado.",
-      player_response: playerAccepts ? "Aceita os termos." : "Quer salário maior.",
+      player_name: n.player.name,
+      other_club: n.player.current_club || n.player.region,
+      deal_type: n.dealType,
+      loan_months: n.dealType === "loan" ? n.loanMonths : 0,
+      loan_buy_option_eur: n.dealType === "loan" && n.loanType !== "simple" ? n.buyOption : 0,
+      loan_obligation: n.dealType === "loan" && n.loanType === "obligation",
+      wage_share_pct: n.dealType === "loan" ? n.wageSharePct : 100,
+      fee_eur: n.fee,
+      wage_eur: n.wage,
+      bonus_eur: n.bonus,
+      contract_years: n.years,
+      negotiation_round: n.round,
+      rounds_used: n.round,
+      status: "accepted",
+      club_response: "Aceita a proposta final.",
+      player_response: "Aceita os termos finais.",
     });
 
-    if (!clubAccepts || !playerAccepts) {
-      toast.error(!clubAccepts ? "Clube vendedor recusou." : "Jogador recusou os termos.");
-      return;
-    }
-
-    // Contrata: adiciona ao elenco do meu clube, remove do mercado, debita caixa, ajusta folha
-    await supabase.from("squad_players").insert({
-      career_id: career.id,
-      user_id: career.user_id,
-      club_slug: career.club_slug,
-      name: player.name,
-      position: player.position,
-      overall: player.overall,
-      weekly_wage_eur: wage,
-      market_value_eur: player.market_value_eur,
-    });
-    await supabase.from("market_players").delete().eq("id", player.id);
-    await supabase.from("careers").update({
-      cash_eur: career.cash_eur - fee,
-      weekly_wages_eur: career.weekly_wages_eur + wage,
-      updated_at: new Date().toISOString(),
-    }).eq("id", career.id);
-    await supabase.from("news_feed").insert({
-      career_id: career.id,
-      user_id: career.user_id,
-      kind: "headline",
-      title: `${club.name} acerta a contratação de ${player.name}`,
-      body: `Vindo do ${player.current_club || player.region}. Valor: ${formatEur(fee)} • Salário: ${formatEur(wage)}/sem • Contrato: ${years} anos`,
-    });
-    toast.success(`${player.name} é seu novo reforço!`);
     await refresh();
     await load();
   };
@@ -242,7 +303,7 @@ function MercadoPage() {
                   <p className="font-bold">{formatEur(p.expected_wage_eur)}/sem</p>
                 </div>
               </div>
-              <NegotiateDialog player={p} onNegotiate={negotiate} disabled={!career.transfer_window_open} />
+              <NegotiateDialog player={p} onClose={closeDeal} disabled={!career.transfer_window_open} cash={career.cash_eur} />
             </CardContent>
           </Card>
         ))}
@@ -256,18 +317,40 @@ function MercadoPage() {
   );
 }
 
-function NegotiateDialog({ player, onNegotiate, disabled }: { player: MarketRow; onNegotiate: (p: MarketRow, fee: number, wage: number, years: number) => Promise<void>; disabled?: boolean }) {
+function NegotiateDialog({
+  player, onClose, disabled, cash,
+}: {
+  player: MarketRow;
+  onClose: (n: Negotiation) => Promise<void>;
+  disabled?: boolean;
+  cash: number;
+}) {
   const [open, setOpen] = useState(false);
-  const [fee, setFee] = useState(player.market_value_eur);
-  const [wage, setWage] = useState(player.expected_wage_eur);
-  const [years, setYears] = useState(3);
+  const [neg, setNeg] = useState<Negotiation>(() => initialNegotiation(player));
   const [busy, setBusy] = useState(false);
 
+  // Reseta quando abre
+  useEffect(() => {
+    if (open) setNeg(initialNegotiation(player));
+  }, [open, player]);
+
+  const isLoan = neg.dealType === "loan";
+  const dealClosed = neg.history.some((h) => h.text.startsWith("✅"));
+  const dealRejected = neg.history.some((h) => h.text.startsWith("❌"));
+  const canSendMore = neg.round <= MAX_NEGOTIATION_ROUNDS && !dealClosed && !dealRejected;
+
+  // Envia proposta para clube + jogador. Atualiza demandas se recusado parcialmente.
   const submit = async () => {
     setBusy(true);
-    await onNegotiate(player, fee, wage, years);
+    const next = simulateRound(neg);
+    setNeg(next);
     setBusy(false);
-    setOpen(false);
+
+    // Se aceitaram tudo, fecha o negócio
+    if (next.history[next.history.length - 1].text.startsWith("✅")) {
+      await onClose(next);
+      setTimeout(() => setOpen(false), 1200);
+    }
   };
 
   return (
@@ -277,29 +360,238 @@ function NegotiateDialog({ player, onNegotiate, disabled }: { player: MarketRow;
           {disabled ? <><Lock className="mr-2 h-4 w-4" /> Janela fechada</> : <><Handshake className="mr-2 h-4 w-4" /> Negociar</>}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Negociar — {player.name}</DialogTitle>
-          <DialogDescription>Defina sua proposta. O clube e o jogador podem aceitar ou recusar.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <Gavel className="h-5 w-5 text-primary" /> Negociar — {player.name}
+          </DialogTitle>
+          <DialogDescription>
+            {neg.player.current_club || "Livre"} • Valor de mercado {formatEur(player.market_value_eur)} • Salário pedido {formatEur(player.expected_wage_eur)}/sem
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Valor da transferência (€)</Label>
-            <Input type="number" value={fee} onChange={(e) => setFee(parseInt(e.target.value) || 0)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Salário semanal (€)</Label>
-            <Input type="number" value={wage} onChange={(e) => setWage(parseInt(e.target.value) || 0)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Anos de contrato</Label>
-            <Input type="number" min={1} max={6} value={years} onChange={(e) => setYears(parseInt(e.target.value) || 3)} />
+
+        {/* Tipo de negociação */}
+        <div className="space-y-2">
+          <Label className="text-xs">Tipo</Label>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={neg.dealType === "buy" ? "default" : "outline"}
+              onClick={() => setNeg(initialNegotiation(player, "buy"))}
+              className="flex-1"
+              disabled={dealClosed}
+            >
+              <ShoppingCart className="mr-1 h-4 w-4" /> Compra
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={neg.dealType === "loan" ? "default" : "outline"}
+              onClick={() => setNeg(initialNegotiation(player, "loan"))}
+              className="flex-1"
+              disabled={dealClosed}
+            >
+              <Repeat className="mr-1 h-4 w-4" /> Empréstimo
+            </Button>
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={busy} className="w-full">{busy ? "Enviando..." : "Enviar proposta"}</Button>
+
+        {isLoan && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Modalidade</Label>
+              <Select value={neg.loanType} onValueChange={(v) => setNeg({ ...neg, loanType: v as LoanType })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="simple">Empréstimo simples</SelectItem>
+                  <SelectItem value="option">Com opção de compra</SelectItem>
+                  <SelectItem value="obligation">Com obrigação de compra</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Duração</Label>
+              <Select value={String(neg.loanMonths)} onValueChange={(v) => setNeg({ ...neg, loanMonths: Number(v) as 3 | 6 | 12 })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 meses</SelectItem>
+                  <SelectItem value="6">6 meses</SelectItem>
+                  <SelectItem value="12">1 ano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">% salário pago por nós</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={neg.wageSharePct}
+                onChange={(e) => setNeg({ ...neg, wageSharePct: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })}
+              />
+            </div>
+            {neg.loanType !== "simple" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Opção/obrigação de compra (€)</Label>
+                <Input
+                  type="number"
+                  value={neg.buyOption}
+                  onChange={(e) => setNeg({ ...neg, buyOption: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">{isLoan ? "Taxa de empréstimo (€)" : "Valor da transferência (€)"}</Label>
+            <Input type="number" value={neg.fee} onChange={(e) => setNeg({ ...neg, fee: parseInt(e.target.value) || 0 })} />
+            <p className="text-[10px] text-muted-foreground">Clube pede agora: {formatEur(neg.clubAsk)}</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Salário semanal total (€)</Label>
+            <Input type="number" value={neg.wage} onChange={(e) => setNeg({ ...neg, wage: parseInt(e.target.value) || 0 })} />
+            <p className="text-[10px] text-muted-foreground">Jogador quer: {formatEur(neg.playerAsk)}/sem</p>
+          </div>
+          {!isLoan && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Bônus (€)</Label>
+                <Input type="number" value={neg.bonus} onChange={(e) => setNeg({ ...neg, bonus: parseInt(e.target.value) || 0 })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Anos de contrato</Label>
+                <Input type="number" min={1} max={6} value={neg.years} onChange={(e) => setNeg({ ...neg, years: parseInt(e.target.value) || 3 })} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Histórico da negociação */}
+        {neg.history.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> Negociação — Rodada {Math.min(neg.round, MAX_NEGOTIATION_ROUNDS)}/{MAX_NEGOTIATION_ROUNDS}
+            </Label>
+            <div className="max-h-40 space-y-1.5 overflow-y-auto rounded border border-border/40 bg-background/30 p-2 text-xs">
+              {neg.history.map((h, i) => (
+                <div key={i} className={
+                  h.from === "you" ? "text-foreground" :
+                  h.from === "club" ? "text-amber-300" : "text-emerald-300"
+                }>
+                  <strong className="mr-1">
+                    {h.from === "you" ? "Você:" : h.from === "club" ? `${player.current_club || "Clube"}:` : `${player.name}:`}
+                  </strong>
+                  {h.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded border border-border/40 bg-background/30 p-2 text-[11px] text-muted-foreground">
+          💰 Caixa: {formatEur(cash)} {neg.fee > cash && <span className="text-destructive">— insuficiente</span>}
+        </div>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {canSendMore ? (
+            <Button onClick={submit} disabled={busy} className="w-full">
+              {busy ? "Aguardando resposta..." : neg.round === 1 ? "Enviar proposta" : `Enviar contraproposta (rodada ${neg.round})`}
+            </Button>
+          ) : dealClosed ? (
+            <Button disabled className="w-full">✅ Negócio fechado</Button>
+          ) : dealRejected ? (
+            <Button disabled variant="destructive" className="w-full">❌ Negociação encerrada</Button>
+          ) : (
+            <Button disabled variant="outline" className="w-full">Limite de {MAX_NEGOTIATION_ROUNDS} rodadas atingido</Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+// ====== Negociação inteligente ======
+function initialNegotiation(player: MarketRow, dealType: DealType = "buy"): Negotiation {
+  const isLoan = dealType === "loan";
+  return {
+    player,
+    dealType,
+    loanType: "simple",
+    loanMonths: 6,
+    fee: isLoan ? Math.round(player.market_value_eur * 0.08) : player.market_value_eur,
+    wage: player.expected_wage_eur,
+    bonus: 0,
+    years: 3,
+    wageSharePct: 100,
+    buyOption: Math.round(player.market_value_eur * 1.05),
+    round: 1,
+    history: [],
+    clubAsk: isLoan ? Math.round(player.market_value_eur * 0.1) : player.market_value_eur,
+    playerAsk: player.expected_wage_eur,
+  };
+}
+
+function simulateRound(n: Negotiation): Negotiation {
+  const history = [...n.history];
+  history.push({
+    from: "you",
+    text: n.dealType === "buy"
+      ? `Proposta de compra: ${formatEur(n.fee)}${n.bonus ? ` + ${formatEur(n.bonus)} bônus` : ""} • salário ${formatEur(n.wage)}/sem • ${n.years} anos.`
+      : `Empréstimo (${n.loanType === "simple" ? "simples" : n.loanType === "option" ? "opção" : "obrigação"}, ${n.loanMonths}m): taxa ${formatEur(n.fee)}, ${n.wageSharePct}% salário (${formatEur(n.wage)}/sem total)${n.loanType !== "simple" ? `, opção ${formatEur(n.buyOption)}` : ""}.`,
+  });
+
+  const totalOffered = n.fee + n.bonus * 0.6;
+  const clubGap = totalOffered / Math.max(1, n.clubAsk);
+  const playerGap = n.wage / Math.max(1, n.playerAsk);
+
+  const clubAccepts = clubGap >= 0.97;
+  const playerAccepts = playerGap >= 0.97;
+
+  // Em última rodada, se ambos rejeitarem, encerra a negociação.
+  const lastRound = n.round >= MAX_NEGOTIATION_ROUNDS;
+
+  // Resposta do clube
+  let nextClubAsk = n.clubAsk;
+  if (clubAccepts) {
+    history.push({ from: "club", text: "Aceitamos a proposta. Boa sorte ao jogador." });
+  } else if (clubGap < 0.6 && lastRound) {
+    history.push({ from: "club", text: "Distância grande demais. Encerramos a conversa." });
+    history.push({ from: "club", text: "❌ Negociação encerrada pelo clube." });
+  } else {
+    // Clube cede um pouco mas ainda pede mais
+    nextClubAsk = Math.max(totalOffered + 1, Math.round(n.clubAsk * (clubGap < 0.7 ? 0.92 : 0.96)));
+    const tone = clubGap < 0.7 ? "Está muito abaixo. Precisamos pelo menos" : "Estamos perto, mas queremos";
+    history.push({ from: "club", text: `${tone} ${formatEur(nextClubAsk)} para liberar.` });
+  }
+
+  // Resposta do jogador
+  let nextPlayerAsk = n.playerAsk;
+  if (playerAccepts) {
+    history.push({ from: "player", text: "Aceito o salário. Quero vestir essa camisa!" });
+  } else if (playerGap < 0.7 && lastRound) {
+    history.push({ from: "player", text: "❌ O salário está muito longe do que mereço. Recuso." });
+  } else {
+    nextPlayerAsk = Math.max(n.wage + 1, Math.round(n.playerAsk * (playerGap < 0.8 ? 0.95 : 0.98)));
+    history.push({ from: "player", text: `Quero ao menos ${formatEur(nextPlayerAsk)}/sem para fechar.` });
+  }
+
+  // Resultado final da rodada
+  const closed = clubAccepts && playerAccepts;
+  const ended = history.some((h) => h.text.startsWith("❌"));
+  if (closed) {
+    history.push({ from: "club", text: `✅ Negócio fechado! Bem-vindo, ${n.player.name}.` });
+  } else if (lastRound && !ended) {
+    history.push({ from: "club", text: "❌ Negociação encerrada — limite de rodadas atingido." });
+  }
+
+  return {
+    ...n,
+    round: n.round + 1,
+    history,
+    clubAsk: nextClubAsk,
+    playerAsk: nextPlayerAsk,
+  };
 }
