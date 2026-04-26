@@ -36,6 +36,14 @@ interface SquadRow {
 
 const POSITIONS: Position[] = POSITION_LIST;
 
+// Agrupa posições em setores táticos para organização visual.
+const SECTORS: Array<{ key: string; label: string; icon: string; positions: Position[] }> = [
+  { key: "gol",     label: "Goleiros",       icon: "🧤", positions: ["GOL"] },
+  { key: "def",     label: "Defensores",     icon: "🛡️", positions: ["ZAG", "LAT"] },
+  { key: "meio",    label: "Meio-campo",     icon: "⚙️", positions: ["VOL", "MDF", "MCT", "MAT"] },
+  { key: "ataque",  label: "Atacantes",      icon: "⚡", positions: ["PTA", "CA"] },
+];
+
 export const Route = createFileRoute("/carreira/$careerId/elenco")({
   component: ElencoPage,
 });
@@ -65,6 +73,14 @@ function ElencoPage() {
   );
 
   const totalWage = players.reduce((acc, p) => acc + p.weekly_wage_eur, 0);
+
+  // Agrupa jogadores por setor para renderização em seções.
+  const grouped = useMemo(() => {
+    return SECTORS.map((sector) => ({
+      ...sector,
+      players: sorted.filter((p) => sector.positions.includes(p.position as Position)),
+    }));
+  }, [sorted]);
 
   const handleEdit = async (
     id: string,
@@ -153,48 +169,63 @@ function ElencoPage() {
       {loading ? (
         <p className="text-muted-foreground">Carregando elenco...</p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {sorted.map((p) => (
-            <Card key={p.id} className="border-border/60 bg-card/70">
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-gold text-primary-foreground">
-                  <span className="text-lg font-black leading-none">{p.overall}</span>
-                  <span className="text-[10px] font-semibold uppercase tracking-widest">{p.position}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate font-bold">{p.name}</p>
-                    {p.injured && <Badge variant="destructive" className="gap-1"><Stethoscope className="h-3 w-3" />Lesionado</Badge>}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>{p.age} anos</span>
-                    <span>POT {p.potential}</span>
-                    <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {p.morale}</span>
-                    <span>⚽ {p.goals}</span>
-                    <span>🅰️ {p.assists}</span>
-                    <span>{formatEur(p.weekly_wage_eur)}/sem</span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1.5">
-                  <p className="text-xs uppercase text-muted-foreground">Valor</p>
-                  <p className="font-bold">{formatEur(p.market_value_eur)}</p>
-                  <div className="flex gap-1">
-                    <EditPlayerDialog player={p} onEdit={handleEdit} />
-                    <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.id, p.name, p.weekly_wage_eur)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="space-y-6">
           {sorted.length === 0 && (
-            <Card className="md:col-span-2 xl:col-span-3 border-destructive/40 bg-destructive/10">
+            <Card className="border-destructive/40 bg-destructive/10">
               <CardContent className="flex items-center gap-3 p-4 text-sm">
                 <ShieldAlert className="h-5 w-5 text-destructive" /> Elenco vazio. Use o mercado para reforçar.
               </CardContent>
             </Card>
           )}
+          {grouped.map((sector) => (
+            sector.players.length === 0 ? null : (
+              <section key={sector.key} className="space-y-2">
+                <div className="flex items-center gap-2 border-b border-border/40 pb-1.5">
+                  <span className="text-lg">{sector.icon}</span>
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    {sector.label}
+                  </h2>
+                  <Badge variant="secondary" className="ml-1 text-[10px]">{sector.players.length}</Badge>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {sector.players.map((p) => (
+                    <Card key={p.id} className="border-border/60 bg-card/70">
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-gold text-primary-foreground">
+                          <span className="text-lg font-black leading-none">{p.overall}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-widest">{p.position}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate font-bold">{p.name}</p>
+                            {p.injured && <Badge variant="destructive" className="gap-1"><Stethoscope className="h-3 w-3" />Suspenso/Lesionado</Badge>}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            <span>{p.age} anos</span>
+                            <span>POT {p.potential}</span>
+                            <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {p.morale}</span>
+                            <span>⚽ {p.goals}</span>
+                            <span>🅰️ {p.assists}</span>
+                            <span>{formatEur(p.weekly_wage_eur)}/sem</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <p className="text-xs uppercase text-muted-foreground">Valor</p>
+                          <p className="font-bold">{formatEur(p.market_value_eur)}</p>
+                          <div className="flex gap-1">
+                            <EditPlayerDialog player={p} onEdit={handleEdit} />
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(p.id, p.name, p.weekly_wage_eur)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+            )
+          ))}
         </div>
       )}
     </div>
