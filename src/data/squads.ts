@@ -240,4 +240,3 @@ export const MARKET_SEED: MarketSeedPlayer[] = [
 
 // Sentinela: garante que a edição não quebrou a lista.
 export const MARKET_SEED_COUNT = MARKET_SEED.length;
-];
