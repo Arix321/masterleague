@@ -13,7 +13,6 @@ import {
   fanReaction,
   postMatchHeadline,
   postMatchPressIntro,
-  postMatchPressQuestions,
 } from "@/lib/narrative";
 import { isWindowOpen, isDerby, derbyName } from "@/lib/season";
 import { loadLineup, clearLineup, type SavedLineup } from "@/lib/lineup";
@@ -34,6 +33,7 @@ interface SquadRow {
   age: number;
   market_value_eur: number;
   weekly_wage_eur: number;
+  yellow_cards_season: number;
 }
 
 type StatKey = "goals" | "assists" | "yellow" | "red";
@@ -104,7 +104,7 @@ function JogoPage() {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur")
+        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
@@ -198,7 +198,17 @@ function JogoPage() {
       toast.error("Um jogador só pode receber 1 vermelho.");
       return;
     }
+    if (key === "yellow" && nextVal > 2) {
+      toast.error("Máximo de 2 amarelos por jogador. O 2º amarelo já significa expulsão.");
+      return;
+    }
     setter({ ...current, [playerId]: nextVal });
+    // 2 amarelos = expulsão automática (1 vermelho).
+    if (key === "yellow" && nextVal === 2 && (red[playerId] ?? 0) === 0) {
+      setRed((r) => ({ ...r, [playerId]: 1 }));
+      const p = players.find((pp) => pp.id === playerId);
+      if (p) toast.warning(`🟨🟨 ${p.name} levou o 2º amarelo e foi expulso!`);
+    }
   };
 
   const submit = async () => {
@@ -258,6 +268,35 @@ function JogoPage() {
     // Vermelho => suspenso (injured proxy)
     for (const [id, n] of Object.entries(red)) {
       if (n > 0) await supabase.from("squad_players").update({ injured: true }).eq("id", id);
+    }
+
+    // Amarelos da temporada: 3 amarelos em jogos diferentes => suspensão + reset.
+    // 2 amarelos no mesmo jogo (já viraram vermelho acima) NÃO contam pro acumulado.
+    for (const [id, n] of Object.entries(yellow)) {
+      const p = players.find((x) => x.id === id);
+      if (!p || n <= 0) continue;
+      const tookRed = (red[id] ?? 0) > 0;
+      if (tookRed) continue; // já está suspenso por vermelho; não acumula amarelo
+      const newTotal = (p.yellow_cards_season ?? 0) + 1; // 1 amarelo por jogo conta
+      if (newTotal >= 3) {
+        // Suspensão por acúmulo: marca como injured (proxy de suspensão) e zera contador.
+        await supabase
+          .from("squad_players")
+          .update({ yellow_cards_season: 0, injured: true })
+          .eq("id", p.id);
+        await supabase.from("news_feed").insert({
+          career_id: career.id,
+          user_id: career.user_id,
+          kind: "headline",
+          title: `${p.name} suspenso por acúmulo de amarelos`,
+          body: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}. Após cumprir suspensão, o contador será zerado.`,
+        });
+      } else {
+        await supabase
+          .from("squad_players")
+          .update({ yellow_cards_season: newTotal })
+          .eq("id", p.id);
+      }
     }
 
     const nextOpp = club.rivals[(career.matchday) % club.rivals.length] ?? "Adversário";
@@ -421,12 +460,19 @@ function JogoPage() {
       clubSlug: club.slug,
     };
     setPressIntro(postMatchPressIntro(ctx));
-    setPressQuestions(postMatchPressQuestions(ctx));
+    setPressQuestions([]);
     setPressIndex(0);
     setPressAnswer("");
     setPressAnswers([]);
     setPressOpen(true);
     setBusy(false);
+    // Dispara primeira pergunta da IA
+    void fetchNextAIQuestion([], {
+      yellow: yellowStr,
+      red: redStr,
+      derby: dName,
+      matchday: career.matchday,
+    });
   };
 
   const advancePress = async () => {
