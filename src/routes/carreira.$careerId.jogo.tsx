@@ -522,38 +522,55 @@ function JogoPage() {
             )}
           </div>
           <div className="max-h-[480px] space-y-1 overflow-y-auto pr-1">
-            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Titulares</p>
-            {ordered.filter((p) => lineup.starters.includes(p.id)).map((p) => (
-              <div key={p.id} className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2">
-                <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                <span className="flex-1 truncate">{p.name}</span>
-                <span className="text-sm font-bold text-primary">{p.overall}</span>
-              </div>
-            ))}
-            {lineup.bench.length > 0 && (
+            <p className="px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Em campo</p>
+            {ordered.filter((p) => onFieldIds.has(p.id)).map((p) => {
+              const camePerSub = liveSubs.some((s) => s.inId === p.id);
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-center gap-3 rounded-md border px-3 py-2 ${
+                    camePerSub ? "border-emerald-500/40 bg-emerald-500/10" : "border-primary/40 bg-primary/10"
+                  }`}
+                >
+                  <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(p.position)}</span>
+                  <span className="flex-1 truncate">{p.name}</span>
+                  {camePerSub && <Badge variant="outline" className="text-[9px]">Entrou</Badge>}
+                  <span className="text-sm font-bold text-primary">{p.overall}</span>
+                </div>
+              );
+            })}
+            {liveSubs.length > 0 && (
               <>
-                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Banco</p>
-                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2">
-                    <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{p.position}</span>
-                    <span className="flex-1 truncate text-sm">{p.name}</span>
-                    <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
-                  </div>
-                ))}
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Saíram do jogo</p>
+                {liveSubs.map((s, i) => {
+                  const out = players.find((p) => p.id === s.outId);
+                  if (!out) return null;
+                  return (
+                    <div key={`out-${i}`} className="flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2 opacity-70">
+                      <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(out.position)}</span>
+                      <span className="flex-1 truncate text-sm line-through">{out.name}</span>
+                      <span className="text-[10px] text-muted-foreground">saiu aos {s.minute}'</span>
+                    </div>
+                  );
+                })}
               </>
             )}
-            {lineup.subs.length > 0 && (
+            {lineup.bench.length > 0 && (
               <>
-                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Substituições planejadas</p>
-                {lineup.subs.map((s, i) => {
-                  const out = players.find((p) => p.id === s.outId);
-                  const inn = players.find((p) => p.id === s.inId);
+                <p className="mt-3 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Banco ({benchAvailable.length} disponíveis)
+                </p>
+                {ordered.filter((p) => lineup.bench.includes(p.id)).map((p) => {
+                  const used = liveSubs.some((s) => s.inId === p.id);
                   return (
-                    <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/30 px-3 py-2 text-xs">
-                      <ArrowRightLeft className="h-3 w-3 text-primary" />
-                      <span>{s.minute}'</span>
-                      <span className="font-medium text-destructive-foreground">↓ {out?.name ?? "?"}</span>
-                      <span className="font-medium text-primary">↑ {inn?.name ?? "?"}</span>
+                    <div
+                      key={p.id}
+                      className={`flex items-center gap-3 rounded-md border border-border/40 bg-background/30 px-3 py-2 ${used ? "opacity-50" : ""}`}
+                    >
+                      <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-xs font-bold">{normalizePosition(p.position)}</span>
+                      <span className="flex-1 truncate text-sm">{p.name}</span>
+                      {used && <Badge variant="outline" className="text-[9px]">Em campo</Badge>}
+                      <span className="text-sm font-bold text-muted-foreground">{p.overall}</span>
                     </div>
                   );
                 })}
