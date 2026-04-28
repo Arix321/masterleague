@@ -2,51 +2,40 @@ import type { ClubSlug } from "@/data/clubs";
 
 /**
  * Janela de transferências cíclica:
- * - Aberta nas rodadas 1..4 (4 jogos abertos)
- * - Fechada nas rodadas 5..9 (5 jogos fechados)
- * - Aberta nas rodadas 10..13, fechada 14..18, e assim por diante.
- *
- * Ciclo total = 9 rodadas (4 abertas + 5 fechadas).
+ * - Aberta nas rodadas 1..4
+ * - Fechada nas rodadas 5..9
  */
 const CYCLE = 9;
 const OPEN_PHASE = 4;
 
 export function isWindowOpen(matchday: number): boolean {
   if (matchday < 1) return true;
-  const pos = ((matchday - 1) % CYCLE) + 1; // 1..9
+  const pos = ((matchday - 1) % CYCLE) + 1;
   return pos <= OPEN_PHASE;
 }
 
-/** Próxima rodada em que a janela muda de estado a partir de `matchday` (inclusive). */
 export function nextWindowChange(matchday: number): number {
   const pos = ((matchday - 1) % CYCLE) + 1;
-  if (pos <= OPEN_PHASE) {
-    // ainda aberta — fecha após OPEN_PHASE
-    return matchday + (OPEN_PHASE - pos + 1);
-  }
-  // fechada — abre no início do próximo ciclo
+  if (pos <= OPEN_PHASE) return matchday + (OPEN_PHASE - pos + 1);
   return matchday + (CYCLE - pos + 1);
 }
 
-/** Última rodada da fase aberta atual (se aberta). Caso contrário, próxima abertura. */
 export function windowClosesAt(matchday: number): number {
   const pos = ((matchday - 1) % CYCLE) + 1;
-  if (pos <= OPEN_PHASE) {
-    return matchday + (OPEN_PHASE - pos);
-  }
-  return nextWindowChange(matchday); // representa "abre na rodada X"
+  if (pos <= OPEN_PHASE) return matchday + (OPEN_PHASE - pos);
+  return nextWindowChange(matchday);
 }
 
 // =====================================================
-// Clássicos — pares clube ⇄ adversário considerados rivalidades
+// Clássicos brasileiros
 // =====================================================
 const DERBY_PAIRS: Record<ClubSlug, string[]> = {
-  palmeiras:        ["Corinthians", "São Paulo", "Santos"],
-  flamengo:         ["Fluminense", "Vasco", "Botafogo"],
-  "real-madrid":    ["Barcelona", "Atlético de Madrid"],
-  barcelona:        ["Real Madrid", "Espanyol"],
-  "manchester-city": ["Manchester United"],
-  liverpool:        ["Manchester United", "Everton"],
+  palmeiras:   ["Corinthians", "São Paulo", "Santos"],
+  flamengo:    ["Fluminense", "Vasco", "Botafogo"],
+  corinthians: ["Palmeiras", "São Paulo", "Santos"],
+  vasco:       ["Flamengo", "Fluminense", "Botafogo"],
+  fluminense:  ["Flamengo", "Vasco", "Botafogo"],
+  cruzeiro:    ["Atlético-MG", "América-MG"],
 };
 
 const DERBY_NAMES: Record<string, string> = {
@@ -56,13 +45,17 @@ const DERBY_NAMES: Record<string, string> = {
   "flamengo|Fluminense": "Fla-Flu",
   "flamengo|Vasco": "Clássico dos Milhões",
   "flamengo|Botafogo": "Clássico da Rivalidade",
-  "real-madrid|Barcelona": "El Clásico",
-  "real-madrid|Atlético de Madrid": "Derby Madrileño",
-  "barcelona|Real Madrid": "El Clásico",
-  "barcelona|Espanyol": "Derbi Barceloní",
-  "manchester-city|Manchester United": "Manchester Derby",
-  "liverpool|Manchester United": "North West Derby",
-  "liverpool|Everton": "Merseyside Derby",
+  "corinthians|Palmeiras": "Dérbi Paulista",
+  "corinthians|São Paulo": "Majestoso",
+  "corinthians|Santos": "Clássico Alvinegro",
+  "vasco|Flamengo": "Clássico dos Milhões",
+  "vasco|Fluminense": "Clássico dos Gigantes",
+  "vasco|Botafogo": "Clássico da Amizade",
+  "fluminense|Flamengo": "Fla-Flu",
+  "fluminense|Vasco": "Clássico dos Gigantes",
+  "fluminense|Botafogo": "Clássico Vovô",
+  "cruzeiro|Atlético-MG": "Clássico Mineiro",
+  "cruzeiro|América-MG": "Clássico das Multidões",
 };
 
 export function isDerby(clubSlug: ClubSlug, opponent: string): boolean {
