@@ -53,7 +53,7 @@ export async function createCareer(input: NewCareerInput) {
   }> = [];
   (Object.keys(SQUADS) as ClubSlug[]).forEach((slug) => {
     SQUADS[slug].forEach((p) => {
-      const age = 18 + Math.floor(Math.random() * 17); // 18..34
+      const age = p.age;
       const stats = generatePlayerStats(age, p.position);
       allSquadRows.push({
         career_id: career.id,
@@ -77,9 +77,10 @@ export async function createCareer(input: NewCareerInput) {
   const { error: squadErr } = await supabase.from("squad_players").insert(allSquadRows);
   if (squadErr) throw squadErr;
 
-  // Mercado: remover qualquer jogador que já esteja no elenco do CLUBE SELECIONADO
-  // (jogadores que estão em outros times do jogo continuam disponíveis no mercado).
+  // Mercado: remover qualquer jogador que pertença ao CLUBE SELECIONADO.
+  // Jogadores de outros times continuam disponíveis no mercado.
   const ownedNames = new Set<string>(squad.map((p) => p.name));
+  const ownClubName = club.name;
 
   // Remover duplicatas dentro do próprio MARKET_SEED (mantém a primeira ocorrência,
   // e como a lista está ordenada por valor, fica a entrada de maior valor).
@@ -90,8 +91,10 @@ export async function createCareer(input: NewCareerInput) {
     return true;
   });
 
-  const marketRows = dedupedMarket.filter((mp) => !ownedNames.has(mp.name)).map((mp) => {
-    const age = 19 + Math.floor(Math.random() * 14); // 19..32
+  const marketRows = dedupedMarket
+    .filter((mp) => !ownedNames.has(mp.name) && mp.currentClub !== ownClubName)
+    .map((mp) => {
+    const age = mp.age;
     const stats = generatePlayerStats(age, mp.position);
     return {
       career_id: career.id,
