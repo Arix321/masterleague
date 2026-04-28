@@ -53,7 +53,7 @@ export async function createCareer(input: NewCareerInput) {
   }> = [];
   (Object.keys(SQUADS) as ClubSlug[]).forEach((slug) => {
     SQUADS[slug].forEach((p) => {
-      const age = 18 + Math.floor(Math.random() * 17); // 18..34
+      const age = p.age;
       const stats = generatePlayerStats(age, p.position);
       allSquadRows.push({
         career_id: career.id,
@@ -91,7 +91,7 @@ export async function createCareer(input: NewCareerInput) {
   });
 
   const marketRows = dedupedMarket.filter((mp) => !ownedNames.has(mp.name)).map((mp) => {
-    const age = 19 + Math.floor(Math.random() * 14); // 19..32
+    const age = mp.age;
     const stats = generatePlayerStats(age, mp.position);
     return {
       career_id: career.id,
