@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
+import { pushAINews } from "@/lib/news";
+import coachPressImg from "@/assets/coach-press.jpg";
 
 interface SquadRow {
   id: string;
