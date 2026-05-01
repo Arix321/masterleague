@@ -139,6 +139,17 @@ function EscalacaoPage() {
       toast.error("O capitão precisa estar entre os titulares.");
       return;
     }
+    // Persiste capitão (limpa anterior e marca o novo)
+    (async () => {
+      await supabase
+        .from("squad_players")
+        .update({ is_captain: false })
+        .eq("career_id", careerId)
+        .eq("club_slug", career.club_slug);
+      if (captainId) {
+        await supabase.from("squad_players").update({ is_captain: true }).eq("id", captainId);
+      }
+    })();
     saveLineup(careerId, {
       matchday: career.matchday,
       starters: Array.from(starters),
@@ -274,10 +285,21 @@ function EscalacaoPage() {
                     <div key={p.id} className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-2 py-1.5 text-sm">
                       <span className="w-10 rounded bg-muted px-1 py-0.5 text-center text-[10px] font-bold">{normalizePosition(p.position)}</span>
                       <span className="flex-1 truncate">{p.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCaptainId(captainId === p.id ? "" : p.id)}
+                        className={`rounded p-1 transition ${captainId === p.id ? "text-gold" : "text-muted-foreground hover:text-gold"}`}
+                        title={captainId === p.id ? "Remover capitania" : "Definir como capitão"}
+                      >
+                        <Star className={`h-3.5 w-3.5 ${captainId === p.id ? "fill-current" : ""}`} />
+                      </button>
                       <span className="text-xs font-bold text-primary">{p.overall}</span>
                     </div>
                   ))}
                 </div>
+              )}
+              {captainId && (
+                <p className="text-[10px] text-muted-foreground">⭐ Capitão: <strong>{startersList.find((p) => p.id === captainId)?.name ?? "—"}</strong></p>
               )}
             </div>
             {benchList.length > 0 && (
