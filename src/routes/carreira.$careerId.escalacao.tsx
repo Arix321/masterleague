@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { isDerby, derbyName } from "@/lib/season";
 import { saveLineup } from "@/lib/lineup";
 import { toast } from "sonner";
-import { Users, Trophy, ArrowRight, Flame } from "lucide-react";
+import { Users, Trophy, ArrowRight, Flame, Star } from "lucide-react";
 import { POSITION_ORDER, POSITION_LIST, POSITION_LABEL, normalizePosition, type Position } from "@/data/squads";
 
 interface SquadRow {
@@ -21,6 +21,7 @@ interface SquadRow {
   position: string;
   overall: number;
   injured: boolean;
+  is_captain: boolean;
 }
 
 export const Route = createFileRoute("/carreira/$careerId/escalacao")({
@@ -35,6 +36,7 @@ function EscalacaoPage() {
   const [players, setPlayers] = useState<SquadRow[]>([]);
   const [starters, setStarters] = useState<Set<string>>(new Set());
   const [bench, setBench] = useState<Set<string>>(new Set());
+  const [captainId, setCaptainId] = useState<string>("");
   const [opponent, setOpponent] = useState(career.next_opponent ?? club.rivals[0] ?? "Adversário");
   const [home, setHome] = useState(true);
 
@@ -42,10 +44,13 @@ function EscalacaoPage() {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, injured")
+        .select("id, name, position, overall, injured, is_captain")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
-      setPlayers((data ?? []) as SquadRow[]);
+      const rows = (data ?? []) as SquadRow[];
+      setPlayers(rows);
+      const cap = rows.find((p) => p.is_captain);
+      if (cap) setCaptainId(cap.id);
     })();
   }, [careerId, career.club_slug]);
 
@@ -128,6 +133,10 @@ function EscalacaoPage() {
     }
     if (!opponent.trim()) {
       toast.error("Informe o adversário.");
+      return;
+    }
+    if (captainId && !starters.has(captainId)) {
+      toast.error("O capitão precisa estar entre os titulares.");
       return;
     }
     saveLineup(careerId, {
