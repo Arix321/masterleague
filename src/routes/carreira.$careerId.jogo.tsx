@@ -346,12 +346,14 @@ function JogoPage() {
           .from("squad_players")
           .update({ yellow_cards_season: 0, injured: true })
           .eq("id", p.id);
-        await supabase.from("news_feed").insert({
-          career_id: career.id,
-          user_id: career.user_id,
+        await pushAINews({
+          careerId: career.id,
+          userId: career.user_id,
           kind: "headline",
-          title: `${p.name} suspenso por acúmulo de amarelos`,
-          body: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}. Após cumprir suspensão, o contador será zerado.`,
+          hint: `Suspensão por acúmulo de cartões amarelos. ${p.name} recebeu o 3º amarelo da temporada e está fora da próxima rodada.`,
+          context: { jogador: p.name, clube: club.name, posicao: p.position, rodada: career.matchday },
+          fallbackTitle: `${p.name} suspenso por acúmulo de amarelos`,
+          fallbackBody: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}.`,
         });
       } else {
         await supabase
@@ -382,12 +384,14 @@ function JogoPage() {
             weekly_wage_eur: r.original_wage_eur || 0,
           })
           .eq("id", r.id);
-        await supabase.from("news_feed").insert({
-          career_id: career.id,
-          user_id: career.user_id,
+        await pushAINews({
+          careerId: career.id,
+          userId: career.user_id,
           kind: "transfer",
-          title: `${r.name} retorna de empréstimo`,
-          body: `Após período cedido ao ${r.loan_to_club ?? "clube parceiro"}, ${r.name} se reapresenta e volta a ficar à disposição do ${club.name}.`,
+          hint: `${r.name} retorna ao ${club.name} após empréstimo no ${r.loan_to_club ?? "clube parceiro"}. Mostrar reapresentação.`,
+          context: { jogador: r.name, clube: club.name, clube_origem: r.loan_to_club, rodada: nextMatchday },
+          fallbackTitle: `${r.name} retorna de empréstimo`,
+          fallbackBody: `Após período cedido ao ${r.loan_to_club ?? "clube parceiro"}, ${r.name} se reapresenta no ${club.name}.`,
         });
       }
     }
