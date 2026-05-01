@@ -36,6 +36,8 @@ interface SquadRow {
   market_value_eur: number;
   weekly_wage_eur: number;
   yellow_cards_season: number;
+  morale: number;
+  is_captain: boolean;
 }
 
 type StatKey = "goals" | "assists" | "yellow" | "red";
@@ -166,7 +168,7 @@ function JogoPage() {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season")
+        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season, morale, is_captain")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
@@ -316,7 +318,7 @@ function JogoPage() {
       delta += (assists[p.id] ?? 0) * 3;
       delta -= (yellow[p.id] ?? 0) * 2;
       delta -= (red[p.id] ?? 0) * 12;
-      if (p.id && (p as unknown as { is_captain?: boolean }).is_captain) {
+      if (p.is_captain) {
         delta = Math.round(delta * 1.3); // capitão sente mais
       }
       if (delta === 0) continue;
@@ -1021,6 +1023,10 @@ function JogoPage() {
             </DialogTitle>
             <DialogDescription>{pressIntro}</DialogDescription>
           </DialogHeader>
+
+          <div className="overflow-hidden rounded-lg border border-border/40">
+            <img src={coachPressImg} alt="Técnico falando à imprensa" loading="lazy" width={1280} height={768} className="h-40 w-full object-cover" />
+          </div>
 
           {pressLoading && pressQuestions.length === 0 && (
             <div className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
