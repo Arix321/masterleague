@@ -302,9 +302,11 @@ export type Database = {
           club_slug: string
           created_at: string
           defense: number
+          face_url: string | null
           goals: number
           id: string
           injured: boolean
+          is_captain: boolean
           loan_returns_at_matchday: number | null
           loan_to_club: string | null
           market_value_eur: number
@@ -329,9 +331,11 @@ export type Database = {
           club_slug: string
           created_at?: string
           defense?: number
+          face_url?: string | null
           goals?: number
           id?: string
           injured?: boolean
+          is_captain?: boolean
           loan_returns_at_matchday?: number | null
           loan_to_club?: string | null
           market_value_eur?: number
@@ -356,9 +360,11 @@ export type Database = {
           club_slug?: string
           created_at?: string
           defense?: number
+          face_url?: string | null
           goals?: number
           id?: string
           injured?: boolean
+          is_captain?: boolean
           loan_returns_at_matchday?: number | null
           loan_to_club?: string | null
           market_value_eur?: number

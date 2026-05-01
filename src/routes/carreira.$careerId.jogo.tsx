@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { Trophy, ChevronRight, Mic, ChevronLeft, Goal, HandHelping, Square, Plus, Minus, ArrowRightLeft, Flame, ClipboardList, Trash2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { victoryBonus, buildIncomingOffers } from "@/lib/players";
+import { pushAINews } from "@/lib/news";
+import coachPressImg from "@/assets/coach-press.jpg";
 
 interface SquadRow {
   id: string;
@@ -34,6 +36,8 @@ interface SquadRow {
   market_value_eur: number;
   weekly_wage_eur: number;
   yellow_cards_season: number;
+  morale: number;
+  is_captain: boolean;
 }
 
 type StatKey = "goals" | "assists" | "yellow" | "red";
@@ -164,7 +168,7 @@ function JogoPage() {
     (async () => {
       const { data } = await supabase
         .from("squad_players")
-        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season")
+        .select("id, name, position, overall, goals, assists, injured, age, market_value_eur, weekly_wage_eur, yellow_cards_season, morale, is_captain")
         .eq("career_id", careerId)
         .eq("club_slug", career.club_slug);
       setPlayers((data ?? []) as SquadRow[]);
@@ -301,6 +305,30 @@ function JogoPage() {
     const yellowStr  = namesFromCount(yellow, players);
     const redStr     = namesFromCount(red, players);
 
+    // === MORAL MISTA: base por resultado + ajuste individual ===
+    const baseDelta = realResult === "V" ? (gf - ga >= 3 ? 8 : 5) : realResult === "E" ? -1 : (ga - gf >= 3 ? -10 : -6);
+    const starterIds = new Set(lineup.starters);
+    const onFieldFinal = new Set(onFieldIds); // já considera substituições
+    for (const p of players) {
+      let delta = 0;
+      if (onFieldFinal.has(p.id)) delta += baseDelta;
+      else if (starterIds.has(p.id)) delta += baseDelta; // titular que saiu
+      else delta += Math.round(baseDelta * 0.4); // reservas/fora sentem menos
+      delta += (goals[p.id] ?? 0) * 6;
+      delta += (assists[p.id] ?? 0) * 3;
+      delta -= (yellow[p.id] ?? 0) * 2;
+      delta -= (red[p.id] ?? 0) * 12;
+      if (p.is_captain) {
+        delta = Math.round(delta * 1.3); // capitão sente mais
+      }
+      if (delta === 0) continue;
+      const next = Math.max(5, Math.min(100, p.morale ?? 70) + delta);
+      // Só atualiza se mudou
+      if (next !== p.morale) {
+        await supabase.from("squad_players").update({ morale: next }).eq("id", p.id);
+      }
+    }
+
     const { error: matchErr } = await supabase.from("matches").insert({
       career_id: career.id,
       user_id: career.user_id,
@@ -344,12 +372,14 @@ function JogoPage() {
           .from("squad_players")
           .update({ yellow_cards_season: 0, injured: true })
           .eq("id", p.id);
-        await supabase.from("news_feed").insert({
-          career_id: career.id,
-          user_id: career.user_id,
+        await pushAINews({
+          careerId: career.id,
+          userId: career.user_id,
           kind: "headline",
-          title: `${p.name} suspenso por acúmulo de amarelos`,
-          body: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}. Após cumprir suspensão, o contador será zerado.`,
+          hint: `Suspensão por acúmulo de cartões amarelos. ${p.name} recebeu o 3º amarelo da temporada e está fora da próxima rodada.`,
+          context: { jogador: p.name, clube: club.name, posicao: p.position, rodada: career.matchday },
+          fallbackTitle: `${p.name} suspenso por acúmulo de amarelos`,
+          fallbackBody: `${p.name} recebeu o 3º cartão amarelo da temporada e está automaticamente suspenso para a próxima rodada do ${club.name}.`,
         });
       } else {
         await supabase
@@ -380,12 +410,14 @@ function JogoPage() {
             weekly_wage_eur: r.original_wage_eur || 0,
           })
           .eq("id", r.id);
-        await supabase.from("news_feed").insert({
-          career_id: career.id,
-          user_id: career.user_id,
+        await pushAINews({
+          careerId: career.id,
+          userId: career.user_id,
           kind: "transfer",
-          title: `${r.name} retorna de empréstimo`,
-          body: `Após período cedido ao ${r.loan_to_club ?? "clube parceiro"}, ${r.name} se reapresenta e volta a ficar à disposição do ${club.name}.`,
+          hint: `${r.name} retorna ao ${club.name} após empréstimo no ${r.loan_to_club ?? "clube parceiro"}. Mostrar reapresentação.`,
+          context: { jogador: r.name, clube: club.name, clube_origem: r.loan_to_club, rodada: nextMatchday },
+          fallbackTitle: `${r.name} retorna de empréstimo`,
+          fallbackBody: `Após período cedido ao ${r.loan_to_club ?? "clube parceiro"}, ${r.name} se reapresenta no ${club.name}.`,
         });
       }
     }
@@ -466,50 +498,66 @@ function JogoPage() {
       `${fan}${bonusLine}${liveSubsLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
-    await supabase.from("news_feed").insert({
-      career_id: career.id,
-      user_id: career.user_id,
+    await pushAINews({
+      careerId: career.id,
+      userId: career.user_id,
       kind: "headline",
-      title: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
-      body: detailedBody,
+      hint: `Manchete pós-jogo da rodada ${career.matchday}. ${club.name} ${gf} x ${ga} ${opponent.trim()} (${home ? "casa" : "fora"}). Resultado: ${realResult}. ${derby && dName ? `Foi o ${dName}.` : ""} Inclua tom da torcida e impacto na tabela.`,
+      context: {
+        clube: club.name, adversario: opponent.trim(), placar_pro: gf, placar_contra: ga,
+        mando: home ? "casa" : "fora", resultado: realResult, posicao_tabela: position,
+        pontos_total: career.points + pointsDelta, rodada: career.matchday,
+        derby: dName, gols: scorersStr, assistencias: assistsStr,
+        amarelos: yellowStr, vermelhos: redStr,
+      },
+      fallbackTitle: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
+      fallbackBody: detailedBody,
     });
 
     if (bonus > 0) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "finance",
-        title: `Diretoria libera €${bonus.toLocaleString("pt-BR")} após vitória`,
-        body: `Após a vitória por ${gf}x${ga} sobre o ${opponent.trim()}, o conselho do ${club.name} aprovou um aporte extra de €${bonus.toLocaleString("pt-BR")} no caixa do clube. O bônus reflete o reconhecimento ao desempenho ofensivo da equipe e poderá ser usado em reforços ou ajustes salariais.`,
+        hint: `Diretoria do ${club.name} libera bônus de €${bonus.toLocaleString("pt-BR")} pela vitória de ${gf}x${ga} sobre o ${opponent.trim()}.`,
+        context: { clube: club.name, bonus_eur: bonus, adversario: opponent.trim(), placar: `${gf}x${ga}` },
+        fallbackTitle: `Diretoria libera €${bonus.toLocaleString("pt-BR")} após vitória`,
+        fallbackBody: `Após a vitória por ${gf}x${ga} sobre o ${opponent.trim()}, o conselho do ${club.name} aprovou aporte extra de €${bonus.toLocaleString("pt-BR")}.`,
       });
     }
 
     if (redStr) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "headline",
-        title: `Expulsão complica o ${club.shortName} contra o ${opponent.trim()}`,
-        body: `${redStr} recebeu cartão vermelho durante a partida e ficará de fora da próxima rodada. A comissão técnica precisará reorganizar a escalação para o próximo compromisso.`,
+        hint: `Expulsão complica o ${club.shortName}: ${redStr} recebeu vermelho no jogo contra ${opponent.trim()} e fica fora da próxima rodada.`,
+        context: { clube: club.name, expulsos: redStr, adversario: opponent.trim() },
+        fallbackTitle: `Expulsão complica o ${club.shortName} contra o ${opponent.trim()}`,
+        fallbackBody: `${redStr} recebeu cartão vermelho e ficará de fora da próxima rodada.`,
       });
     }
 
     if (wasOpen && !windowStillOpen) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: "Janela de transferências encerrada",
-        body: `A federação encerrou oficialmente a janela de transferências após a rodada ${career.matchday}. O ${club.name} terá de competir com o elenco atual até a próxima abertura (em 5 rodadas). Movimentações de empréstimo e contratações ficam suspensas.`,
+        hint: `Janela de transferências encerrada após a rodada ${career.matchday}. ${club.name} terá de competir com o elenco atual.`,
+        context: { clube: club.name, rodada: career.matchday },
+        fallbackTitle: "Janela de transferências encerrada",
+        fallbackBody: `A federação encerrou oficialmente a janela após a rodada ${career.matchday}.`,
       });
     }
     if (!wasOpen && windowStillOpen) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: "Janela de transferências reaberta",
-        body: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco antes do próximo fechamento.`,
+        hint: `Janela de transferências reaberta. ${club.name} tem 4 rodadas para reforçar o elenco.`,
+        context: { clube: club.name, rodada: nextMatchday },
+        fallbackTitle: "Janela de transferências reaberta",
+        fallbackBody: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco.`,
       });
     }
 
@@ -975,6 +1023,10 @@ function JogoPage() {
             </DialogTitle>
             <DialogDescription>{pressIntro}</DialogDescription>
           </DialogHeader>
+
+          <div className="overflow-hidden rounded-lg border border-border/40">
+            <img src={coachPressImg} alt="Técnico falando à imprensa" loading="lazy" width={1280} height={768} className="h-40 w-full object-cover" />
+          </div>
 
           {pressLoading && pressQuestions.length === 0 && (
             <div className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-4 text-sm text-muted-foreground">
