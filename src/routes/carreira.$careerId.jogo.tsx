@@ -303,6 +303,30 @@ function JogoPage() {
     const yellowStr  = namesFromCount(yellow, players);
     const redStr     = namesFromCount(red, players);
 
+    // === MORAL MISTA: base por resultado + ajuste individual ===
+    const baseDelta = realResult === "V" ? (gf - ga >= 3 ? 8 : 5) : realResult === "E" ? -1 : (ga - gf >= 3 ? -10 : -6);
+    const starterIds = new Set(lineup.starters);
+    const onFieldFinal = new Set(onFieldIds); // já considera substituições
+    for (const p of players) {
+      let delta = 0;
+      if (onFieldFinal.has(p.id)) delta += baseDelta;
+      else if (starterIds.has(p.id)) delta += baseDelta; // titular que saiu
+      else delta += Math.round(baseDelta * 0.4); // reservas/fora sentem menos
+      delta += (goals[p.id] ?? 0) * 6;
+      delta += (assists[p.id] ?? 0) * 3;
+      delta -= (yellow[p.id] ?? 0) * 2;
+      delta -= (red[p.id] ?? 0) * 12;
+      if (p.id && (p as unknown as { is_captain?: boolean }).is_captain) {
+        delta = Math.round(delta * 1.3); // capitão sente mais
+      }
+      if (delta === 0) continue;
+      const next = Math.max(5, Math.min(100, p.morale ?? 70) + delta);
+      // Só atualiza se mudou
+      if (next !== p.morale) {
+        await supabase.from("squad_players").update({ morale: next }).eq("id", p.id);
+      }
+    }
+
     const { error: matchErr } = await supabase.from("matches").insert({
       career_id: career.id,
       user_id: career.user_id,
