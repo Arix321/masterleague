@@ -472,50 +472,66 @@ function JogoPage() {
       `${fan}${bonusLine}${liveSubsLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
-    await supabase.from("news_feed").insert({
-      career_id: career.id,
-      user_id: career.user_id,
+    await pushAINews({
+      careerId: career.id,
+      userId: career.user_id,
       kind: "headline",
-      title: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
-      body: detailedBody,
+      hint: `Manchete pós-jogo da rodada ${career.matchday}. ${club.name} ${gf} x ${ga} ${opponent.trim()} (${home ? "casa" : "fora"}). Resultado: ${realResult}. ${derby && dName ? `Foi o ${dName}.` : ""} Inclua tom da torcida e impacto na tabela.`,
+      context: {
+        clube: club.name, adversario: opponent.trim(), placar_pro: gf, placar_contra: ga,
+        mando: home ? "casa" : "fora", resultado: realResult, posicao_tabela: position,
+        pontos_total: career.points + pointsDelta, rodada: career.matchday,
+        derby: dName, gols: scorersStr, assistencias: assistsStr,
+        amarelos: yellowStr, vermelhos: redStr,
+      },
+      fallbackTitle: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
+      fallbackBody: detailedBody,
     });
 
     if (bonus > 0) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "finance",
-        title: `Diretoria libera €${bonus.toLocaleString("pt-BR")} após vitória`,
-        body: `Após a vitória por ${gf}x${ga} sobre o ${opponent.trim()}, o conselho do ${club.name} aprovou um aporte extra de €${bonus.toLocaleString("pt-BR")} no caixa do clube. O bônus reflete o reconhecimento ao desempenho ofensivo da equipe e poderá ser usado em reforços ou ajustes salariais.`,
+        hint: `Diretoria do ${club.name} libera bônus de €${bonus.toLocaleString("pt-BR")} pela vitória de ${gf}x${ga} sobre o ${opponent.trim()}.`,
+        context: { clube: club.name, bonus_eur: bonus, adversario: opponent.trim(), placar: `${gf}x${ga}` },
+        fallbackTitle: `Diretoria libera €${bonus.toLocaleString("pt-BR")} após vitória`,
+        fallbackBody: `Após a vitória por ${gf}x${ga} sobre o ${opponent.trim()}, o conselho do ${club.name} aprovou aporte extra de €${bonus.toLocaleString("pt-BR")}.`,
       });
     }
 
     if (redStr) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "headline",
-        title: `Expulsão complica o ${club.shortName} contra o ${opponent.trim()}`,
-        body: `${redStr} recebeu cartão vermelho durante a partida e ficará de fora da próxima rodada. A comissão técnica precisará reorganizar a escalação para o próximo compromisso.`,
+        hint: `Expulsão complica o ${club.shortName}: ${redStr} recebeu vermelho no jogo contra ${opponent.trim()} e fica fora da próxima rodada.`,
+        context: { clube: club.name, expulsos: redStr, adversario: opponent.trim() },
+        fallbackTitle: `Expulsão complica o ${club.shortName} contra o ${opponent.trim()}`,
+        fallbackBody: `${redStr} recebeu cartão vermelho e ficará de fora da próxima rodada.`,
       });
     }
 
     if (wasOpen && !windowStillOpen) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: "Janela de transferências encerrada",
-        body: `A federação encerrou oficialmente a janela de transferências após a rodada ${career.matchday}. O ${club.name} terá de competir com o elenco atual até a próxima abertura (em 5 rodadas). Movimentações de empréstimo e contratações ficam suspensas.`,
+        hint: `Janela de transferências encerrada após a rodada ${career.matchday}. ${club.name} terá de competir com o elenco atual.`,
+        context: { clube: club.name, rodada: career.matchday },
+        fallbackTitle: "Janela de transferências encerrada",
+        fallbackBody: `A federação encerrou oficialmente a janela após a rodada ${career.matchday}.`,
       });
     }
     if (!wasOpen && windowStillOpen) {
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: "Janela de transferências reaberta",
-        body: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco antes do próximo fechamento.`,
+        hint: `Janela de transferências reaberta. ${club.name} tem 4 rodadas para reforçar o elenco.`,
+        context: { clube: club.name, rodada: nextMatchday },
+        fallbackTitle: "Janela de transferências reaberta",
+        fallbackBody: `A janela voltou a abrir! O ${club.name} tem 4 rodadas para reforçar o elenco.`,
       });
     }
 
