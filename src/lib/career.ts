@@ -3,6 +3,7 @@ import { CLUBS, type ClubSlug } from "@/data/clubs";
 import { SQUADS, MARKET_SEED } from "@/data/squads";
 import { generatePlayerStats } from "@/lib/players";
 import { isWindowOpen, windowClosesAt } from "@/lib/season";
+import { pushAINews } from "@/lib/news";
 
 export interface NewCareerInput {
   managerName: string;
@@ -116,22 +117,32 @@ export async function createCareer(input: NewCareerInput) {
     if (mErr) throw mErr;
   }
 
-  // Notícias iniciais
-  await supabase.from("news_feed").insert([
-    {
-      career_id: career.id,
-      user_id: input.userId,
+  // Notícias iniciais (geradas por IA com fallback)
+  await Promise.all([
+    pushAINews({
+      careerId: career.id,
+      userId: input.userId,
       kind: "headline",
-      title: `${input.managerName} é o novo treinador do ${club.name}`,
-      body: `A diretoria oficializou hoje a chegada de ${input.managerName} para comandar o ${club.name} na nova temporada do ${club.league}.`,
-    },
-    {
-      career_id: career.id,
-      user_id: input.userId,
+      hint: `Anunciar a chegada de ${input.managerName} como novo treinador do ${club.name} para a temporada do ${club.league}. Tom: oficial e empolgado.`,
+      context: {
+        clube: club.name,
+        liga: club.league,
+        treinador: input.managerName,
+        rivais: club.rivals.join(", "),
+        orcamento_eur: club.budgetEur,
+      },
+      fallbackTitle: `${input.managerName} é o novo treinador do ${club.name}`,
+      fallbackBody: `A diretoria oficializou hoje a chegada de ${input.managerName} para comandar o ${club.name} na nova temporada do ${club.league}.`,
+    }),
+    pushAINews({
+      careerId: career.id,
+      userId: input.userId,
       kind: "press",
-      title: `Torcida do ${club.name} recebe novo comandante com expectativa`,
-      body: `Nas redes sociais, torcedores do ${club.name} demonstram esperança por uma temporada vitoriosa.`,
-    },
+      hint: `Reação da torcida do ${club.name} à chegada de ${input.managerName}. Mencione redes sociais, expectativa, possíveis cobranças.`,
+      context: { clube: club.name, treinador: input.managerName },
+      fallbackTitle: `Torcida do ${club.name} recebe novo comandante com expectativa`,
+      fallbackBody: `Nas redes sociais, torcedores do ${club.name} demonstram esperança por uma temporada vitoriosa.`,
+    }),
   ]);
 
   return career;
