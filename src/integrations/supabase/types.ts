@@ -261,6 +261,7 @@ export type Database = {
           career_id: string
           created_at: string
           id: string
+          image_url: string | null
           kind: string
           title: string
           user_id: string
@@ -270,6 +271,7 @@ export type Database = {
           career_id: string
           created_at?: string
           id?: string
+          image_url?: string | null
           kind?: string
           title: string
           user_id: string
@@ -279,6 +281,7 @@ export type Database = {
           career_id?: string
           created_at?: string
           id?: string
+          image_url?: string | null
           kind?: string
           title?: string
           user_id?: string
