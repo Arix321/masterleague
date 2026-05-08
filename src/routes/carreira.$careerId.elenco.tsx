@@ -67,6 +67,38 @@ function ElencoPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [careerId, career.club_slug]);
 
+  const [generating, setGenerating] = useState<Record<string, boolean>>({});
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  const generateFace = async (playerId: string, name: string, age: number, position: string) => {
+    setGenerating((g) => ({ ...g, [playerId]: true }));
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-face", {
+        body: { playerId, name, age, position },
+      });
+      if (error) throw error;
+      if (data?.face_url) {
+        setPlayers((prev) => prev.map((p) => p.id === playerId ? { ...p, face_url: data.face_url } : p));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao gerar face.");
+    } finally {
+      setGenerating((g) => ({ ...g, [playerId]: false }));
+    }
+  };
+
+  const generateAllFaces = async () => {
+    const targets = players.filter((p) => !p.face_url);
+    if (targets.length === 0) { toast.info("Todos os jogadores já têm face."); return; }
+    setBulkBusy(true);
+    toast.info(`Gerando ${targets.length} faces, isso pode levar alguns minutos...`);
+    for (const p of targets) {
+      await generateFace(p.id, p.name, p.age, p.position);
+    }
+    setBulkBusy(false);
+    toast.success("Faces geradas!");
+  };
+
   const sorted = useMemo(
     () => [...players].sort((a, b) => (POSITION_ORDER[a.position] ?? 9) - (POSITION_ORDER[b.position] ?? 9) || b.overall - a.overall),
     [players],
