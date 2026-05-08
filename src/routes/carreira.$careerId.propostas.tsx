@@ -13,6 +13,7 @@ import {
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
 import { Inbox, Check, X, Handshake, Heart, Gavel, AlertTriangle } from "lucide-react";
+import { pushAINews } from "@/lib/news";
 
 interface IncomingRow {
   id: string;
@@ -88,12 +89,21 @@ function PropostasPage() {
         weekly_wages_eur: Math.max(0, career.weekly_wages_eur - wageRemoved),
         updated_at: new Date().toISOString(),
       }).eq("id", career.id);
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: `${offer.player_name} é vendido para o ${offer.from_club}`,
-        body: `${club.name} acerta a saída de ${offer.player_name} por ${formatEur(offer.fee_eur)}${offer.bonus_eur ? ` (+${formatEur(offer.bonus_eur)} em bônus)` : ""}. O jogador agora está disponível no mercado defendendo o ${offer.from_club}.`,
+        hint: `Anunciar a venda de ${offer.player_name} do ${club.name} para o ${offer.from_club}. Mencione valores, repercussão da torcida e como o jogador encara a mudança.`,
+        context: {
+          jogador: offer.player_name,
+          clube_origem: club.name,
+          clube_destino: offer.from_club,
+          valor_eur: offer.fee_eur,
+          bonus_eur: offer.bonus_eur,
+          salario_eur: offer.wage_offered_eur,
+        },
+        fallbackTitle: `${offer.player_name} é vendido para o ${offer.from_club}`,
+        fallbackBody: `${club.name} acerta a saída de ${offer.player_name} por ${formatEur(offer.fee_eur)}${offer.bonus_eur ? ` (+${formatEur(offer.bonus_eur)} em bônus)` : ""}.`,
       });
       toast.success(`${offer.player_name} vendido!`);
     } else {
@@ -103,12 +113,19 @@ function PropostasPage() {
         cash_eur: career.cash_eur + offer.bonus_eur,
         updated_at: new Date().toISOString(),
       }).eq("id", career.id);
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
         kind: "transfer",
-        title: `${offer.player_name} é emprestado ao ${offer.from_club}`,
-        body: `${club.name} libera ${offer.player_name} por empréstimo. Bônus: ${formatEur(offer.bonus_eur)}.`,
+        hint: `Anunciar empréstimo de ${offer.player_name} do ${club.name} ao ${offer.from_club}. Bônus envolvido e expectativas do empréstimo.`,
+        context: {
+          jogador: offer.player_name,
+          clube_origem: club.name,
+          clube_destino: offer.from_club,
+          bonus_eur: offer.bonus_eur,
+        },
+        fallbackTitle: `${offer.player_name} é emprestado ao ${offer.from_club}`,
+        fallbackBody: `${club.name} libera ${offer.player_name} por empréstimo. Bônus: ${formatEur(offer.bonus_eur)}.`,
       });
       toast.success(`${offer.player_name} emprestado!`);
     }
@@ -121,15 +138,36 @@ function PropostasPage() {
     await supabase.from("incoming_offers").update({ status: "rejected" }).eq("id", offer.id);
     if (offer.player_interest >= 80) {
       await supabase.from("squad_players").update({ morale: 35 }).eq("id", offer.player_id);
-      await supabase.from("news_feed").insert({
-        career_id: career.id,
-        user_id: career.user_id,
-        kind: "drama",
-        title: `${offer.player_name} fica insatisfeito com recusa`,
-        body: `Após a diretoria recusar a proposta do ${offer.from_club}, ${offer.player_name} demonstrou descontentamento. Moral em queda.`,
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
+        kind: "press",
+        hint: `${offer.player_name} fica insatisfeito após o ${club.name} recusar a proposta do ${offer.from_club}. Mostre bastidor: moral em queda, possível pedido para sair.`,
+        context: {
+          jogador: offer.player_name,
+          clube: club.name,
+          clube_interessado: offer.from_club,
+          interesse_jogador: offer.player_interest,
+        },
+        fallbackTitle: `${offer.player_name} fica insatisfeito com recusa`,
+        fallbackBody: `Após a diretoria recusar a proposta do ${offer.from_club}, ${offer.player_name} demonstrou descontentamento. Moral em queda.`,
       });
       toast.warning(`${offer.player_name} ficou desmotivado.`);
     } else {
+      await pushAINews({
+        careerId: career.id,
+        userId: career.user_id,
+        kind: "transfer",
+        hint: `Diretoria do ${club.name} recusa proposta do ${offer.from_club} por ${offer.player_name}. Tom: oficial, segurando o jogador.`,
+        context: {
+          jogador: offer.player_name,
+          clube: club.name,
+          clube_interessado: offer.from_club,
+          valor_eur: offer.fee_eur,
+        },
+        fallbackTitle: `${club.name} recusa proposta do ${offer.from_club} por ${offer.player_name}`,
+        fallbackBody: `A diretoria considerou a oferta de ${formatEur(offer.fee_eur)} insuficiente e segurou ${offer.player_name}.`,
+      });
       toast.success("Proposta recusada.");
     }
     await load();

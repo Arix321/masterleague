@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ChevronRight } from "lucide-react";
 
-interface NewsRow { id: string; kind: string; title: string; body: string | null; created_at: string }
+interface NewsRow { id: string; kind: string; title: string; body: string | null; created_at: string; image_url: string | null }
 
 export const Route = createFileRoute("/carreira/$careerId/noticias")({
   component: NoticiasPage,
@@ -23,7 +23,7 @@ function NoticiasPage() {
     (async () => {
       const { data } = await supabase
         .from("news_feed")
-        .select("id, kind, title, body, created_at")
+        .select("id, kind, title, body, created_at, image_url")
         .eq("career_id", careerId)
         .order("created_at", { ascending: false });
       setNews((data ?? []) as NewsRow[]);
@@ -56,6 +56,11 @@ function NoticiasPage() {
           className="block w-full text-left"
         >
           <Card className="border-border/60 bg-card/70 transition hover:border-primary/50 hover:bg-card">
+            {n.image_url && (
+              <div className="aspect-[16/7] w-full overflow-hidden rounded-t-lg">
+                <img src={n.image_url} alt={n.title} loading="lazy" className="h-full w-full object-cover" />
+              </div>
+            )}
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="border-primary/40 text-primary">{kindLabel[n.kind] ?? n.kind}</Badge>
@@ -87,6 +92,11 @@ function NoticiasPage() {
             <DialogTitle className="text-xl leading-tight">{open?.title}</DialogTitle>
             <DialogDescription className="sr-only">Detalhes da notícia</DialogDescription>
           </DialogHeader>
+          {open?.image_url && (
+            <div className="overflow-hidden rounded-md">
+              <img src={open.image_url} alt={open.title} className="w-full object-cover" />
+            </div>
+          )}
           {open?.body && (
             <div
               className="prose prose-sm prose-invert max-h-[60vh] overflow-y-auto whitespace-pre-line text-sm leading-relaxed text-foreground/90"

@@ -498,6 +498,20 @@ function JogoPage() {
       `${fan}${bonusLine}${liveSubsLine}${subsLine}${derbyLine}`,
     ].join("\n");
 
+    // Imagem da torcida pós-jogo (não bloqueante: se falhar segue sem imagem)
+    let crowdImageUrl: string | null = null;
+    try {
+      const moodKind = derby
+        ? (realResult === "V" ? "derby_win" : realResult === "D" ? "derby_loss" : "draw")
+        : (realResult === "V" ? "win" : realResult === "D" ? "loss" : "draw");
+      const { data: crowdData } = await supabase.functions.invoke("generate-crowd", {
+        body: { mood: moodKind, clubName: club.name, scoreline: `${gf}x${ga}` },
+      });
+      if (crowdData?.image_url) crowdImageUrl = String(crowdData.image_url);
+    } catch (e) {
+      console.warn("crowd image skipped", e);
+    }
+
     await pushAINews({
       careerId: career.id,
       userId: career.user_id,
@@ -512,6 +526,7 @@ function JogoPage() {
       },
       fallbackTitle: postMatchHeadline(opponent.trim(), gf, ga, club.name, club.slug),
       fallbackBody: detailedBody,
+      imageUrl: crowdImageUrl,
     });
 
     if (bonus > 0) {
@@ -579,6 +594,23 @@ function JogoPage() {
             user_id: career.user_id,
           })),
         );
+        // Notícia por IA anunciando o assédio do mercado pelos nossos jogadores
+        const targets = offers
+          .map((o) => `${o.player_name} (${o.from_club}, ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(o.fee_eur)})`)
+          .join("; ");
+        await pushAINews({
+          careerId: career.id,
+          userId: career.user_id,
+          kind: "transfer",
+          hint: `Mercado se movimenta atrás de jogadores do ${club.name} após a rodada ${career.matchday}. Cite os alvos, clubes interessados e valores oferecidos. Tom: especulativo e jornalístico.`,
+          context: {
+            clube: club.name, rodada: career.matchday,
+            alvos: targets,
+            quantidade_propostas: offers.length,
+          },
+          fallbackTitle: `${club.shortName} recebe ${offers.length} proposta${offers.length > 1 ? "s" : ""} pelo elenco`,
+          fallbackBody: `Após a rodada ${career.matchday}, clubes se movimentaram pelos jogadores do ${club.name}. Alvos: ${targets}.`,
+        });
       }
     }
 
