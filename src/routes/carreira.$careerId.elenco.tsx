@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatEur } from "@/lib/format";
 import { toast } from "sonner";
-import { Heart, ShieldAlert, Stethoscope, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Heart, ShieldAlert, Stethoscope, Pencil, Plus, Sparkles, Trash2, UserRound, Wand2, Loader2 } from "lucide-react";
 import { generatePlayerStats, randomPlayerName, estimateValue } from "@/lib/players";
 import { POSITION_ORDER, POSITION_LIST, type Position } from "@/data/squads";
 
@@ -32,6 +32,7 @@ interface SquadRow {
   defense: number;
   physical: number;
   technique: number;
+  face_url: string | null;
 }
 
 const POSITIONS: Position[] = POSITION_LIST;
@@ -57,7 +58,7 @@ function ElencoPage() {
   const load = async () => {
     const { data, error } = await supabase
       .from("squad_players")
-      .select("id, name, position, overall, weekly_wage_eur, market_value_eur, morale, injured, goals, assists, age, potential, attack, defense, physical, technique")
+      .select("id, name, position, overall, weekly_wage_eur, market_value_eur, morale, injured, goals, assists, age, potential, attack, defense, physical, technique, face_url")
       .eq("career_id", careerId)
       .eq("club_slug", career.club_slug);
     if (error) toast.error(error.message);
@@ -194,7 +195,13 @@ function ElencoPage() {
             <CardTitle>Elenco — {career.club_name}</CardTitle>
             <CardDescription>{players.length} jogadores • Folha semanal {formatEur(totalWage)}</CardDescription>
           </div>
-          <CreatePlayerDialog onCreate={handleCreate} />
+          <div className="flex flex-col items-end gap-2 sm:flex-row">
+            <Button size="sm" variant="secondary" onClick={generateAllFaces} disabled={bulkBusy}>
+              {bulkBusy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Wand2 className="mr-1 h-4 w-4" />}
+              Gerar faces
+            </Button>
+            <CreatePlayerDialog onCreate={handleCreate} />
+          </div>
         </CardHeader>
       </Card>
 
@@ -223,9 +230,29 @@ function ElencoPage() {
                   {sector.players.map((p) => (
                     <Card key={p.id} className="border-border/60 bg-card/70">
                       <CardContent className="flex items-center gap-4 p-4">
-                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-gold text-primary-foreground">
-                          <span className="text-lg font-black leading-none">{p.overall}</span>
-                          <span className="text-[10px] font-semibold uppercase tracking-widest">{p.position}</span>
+                        <div className="relative shrink-0">
+                          {p.face_url ? (
+                            <img
+                              src={p.face_url}
+                              alt={p.name}
+                              className="h-16 w-16 rounded-xl border border-border/60 object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => generateFace(p.id, p.name, p.age, p.position)}
+                              disabled={!!generating[p.id] || bulkBusy}
+                              title="Gerar face com IA"
+                              className="flex h-16 w-16 items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/40 text-muted-foreground transition hover:border-primary/60 hover:text-primary disabled:cursor-not-allowed"
+                            >
+                              {generating[p.id] ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserRound className="h-6 w-6" />}
+                            </button>
+                          )}
+                          <div className="absolute -bottom-1 -right-1 flex flex-col items-center justify-center rounded-md bg-gradient-gold px-1.5 py-0.5 text-primary-foreground shadow">
+                            <span className="text-[11px] font-black leading-none">{p.overall}</span>
+                            <span className="text-[8px] font-semibold uppercase tracking-widest leading-none">{p.position}</span>
+                          </div>
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
