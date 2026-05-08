@@ -10,6 +10,7 @@ interface AINewsArgs {
   context: Record<string, unknown>;
   fallbackTitle: string;
   fallbackBody: string;
+  imageUrl?: string | null;
 }
 
 /**
@@ -37,5 +38,6 @@ export async function pushAINews(args: AINewsArgs) {
     kind: args.kind,
     title,
     body,
+    image_url: args.imageUrl ?? null,
   });
 }
